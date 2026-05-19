@@ -8,7 +8,29 @@ Use `chip-netlist` when you have:
 - a `.tel` netlist,
 - a need to infer chip settings from actual schematic/netlist connections.
 
-The skill is intentionally narrow. It does not try to support every EDA netlist format. It focuses on `.tel` files with `$PACKAGES` and `$NETS` sections.
+This skill is for pin-level chip-configuration reverse engineering and schematic review. It helps an agent compare what the data sheet says a pin or peripheral circuit should do against what the board netlist actually connects. The goal is to build an evidence chain from data sheet rule to netlist connection to inferred design intent.
+
+It is useful for:
+
+- reverse-engineering hardware-set chip options, such as cell count, address selection, chemistry selection, mode pins, switching frequency, current limits, and enable/disable pins,
+- checking whether pullups, pulldowns, jumpers, no-connect pins, tied-high pins, and tied-low pins match the data sheet,
+- reviewing I2C/SMBus, alert, interrupt, NTC, sense, compensation, feedback, divider, gate-drive, bootstrap, and power-path pin groups,
+- finding questionable schematic choices before PCB production or during board bring-up,
+- explaining why a board is configured for a certain operating mode instead of just listing nets.
+
+The skill can help flag issues such as:
+
+- a configuration pin tied to the wrong logic level,
+- a mode-select resistor value that implies an unexpected mode,
+- a missing or unusual pullup/pulldown,
+- a functional pin left floating when the data sheet expects a defined state,
+- a pin grounded or tied to a rail when the typical circuit recommends a resistor/capacitor network,
+- resistor dividers or sense resistors that imply suspicious voltage, current, temperature, or threshold settings,
+- analog ground, signal ground, and power ground connections that deserve review,
+- compensation or timing components that are far from data sheet examples,
+- unused functions that are not disabled in the way the data sheet recommends.
+
+The skill is intentionally narrow. It does not try to support every EDA netlist format. It focuses on `.tel` files with `$PACKAGES` and `$NETS` sections. It is an analysis aid for engineering review, not a replacement for ERC/DRC, signal-integrity/power-integrity analysis, layout inspection, or final hardware sign-off.
 
 ## Recommended Prompt
 

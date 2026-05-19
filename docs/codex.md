@@ -9,13 +9,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.1/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.1/install.sh | bash -s -- --target codex
 ```
 
 ## Manual Install
@@ -50,4 +50,5 @@ On Windows:
 ```powershell
 python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" C:\path\to\board.tel --ref U1
 ```
+
 
