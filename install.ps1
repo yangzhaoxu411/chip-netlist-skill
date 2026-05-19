@@ -50,9 +50,11 @@ function Resolve-SkillSource {
         throw "Source does not contain $SkillName/SKILL.md or SKILL.md: $Source"
     }
 
-    $localCandidate = Join-Path $PSScriptRoot $SkillName
-    if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $localCandidate "SKILL.md"))) {
-        return (Resolve-Path -LiteralPath $localCandidate).Path
+    if ($PSScriptRoot) {
+        $localCandidate = Join-Path $PSScriptRoot $SkillName
+        if (Test-Path -LiteralPath (Join-Path $localCandidate "SKILL.md")) {
+            return (Resolve-Path -LiteralPath $localCandidate).Path
+        }
     }
     $git = Get-Command git -ErrorAction SilentlyContinue
     if (-not $git) {
