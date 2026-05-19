@@ -43,13 +43,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git"; $env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git"; $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -57,13 +57,13 @@ $env:CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.sh | CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git" bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.sh | CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git" bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.0/install.sh | bash -s -- --target all
 ```
 
 ## Local Install From a Clone
