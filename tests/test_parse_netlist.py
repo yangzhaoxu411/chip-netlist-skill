@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -47,6 +49,18 @@ def make_sample_epro2(path: Path):
 
 
 class ParseNetlistTests(unittest.TestCase):
+    def test_version_file_and_cli_report_current_version(self):
+        self.assertEqual(parser.load_version(), "0.1.4")
+
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPT), "--version"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(completed.stdout.strip(), "chip-netlist 0.1.4")
+
     def test_epro2_parser_extracts_ai_ready_components_and_connections(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "board.epro2"

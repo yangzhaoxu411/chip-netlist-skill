@@ -33,6 +33,14 @@ FIELD_MAP = {
 }
 
 
+def load_version() -> str:
+    version_file = Path(__file__).resolve().parents[1] / "VERSION"
+    try:
+        return version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
+
+
 def first_present(*values: str | None) -> str | None:
     for value in values:
         if value is None:
@@ -362,10 +370,14 @@ def analyze(path: Path, ref: str | None = None) -> dict[str, Any]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Extract AI-ready component and net connectivity from an .epro2 project.")
-    parser.add_argument("project", type=Path, help="Path to an EasyEDA Pro .epro2 project")
+    parser.add_argument("project", nargs="?", type=Path, help="Path to an EasyEDA Pro .epro2 project")
     parser.add_argument("--ref", help="Reference designator to include as a focused report, for example U1")
     parser.add_argument("--json", action="store_true", help="Accepted for compatibility; output is always JSON")
+    parser.add_argument("--version", action="version", version=f"chip-netlist {load_version()}")
     args = parser.parse_args(argv)
+
+    if args.project is None:
+        parser.error("the following arguments are required: project")
 
     result = analyze(args.project, args.ref)
     print(json.dumps(result, ensure_ascii=False, indent=2))

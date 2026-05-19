@@ -9,13 +9,27 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
+$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target claude
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.sh | bash -s -- --target claude
+```
+
+## Update to Latest
+
+Windows PowerShell:
+
+```powershell
+$env:TARGET="claude"; $tag=(irm https://api.github.com/repos/yangzhaoxu411/chip-netlist-skill/releases/latest).tag_name; irm "https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/$tag/install.ps1" | iex
+```
+
+View the installed version:
+
+```powershell
+python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
 ```
 
 ## Manual Install

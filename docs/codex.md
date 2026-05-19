@@ -9,13 +9,27 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.sh | bash -s -- --target codex
+```
+
+## Update to Latest
+
+Windows PowerShell:
+
+```powershell
+$env:TARGET="codex"; $tag=(irm https://api.github.com/repos/yangzhaoxu411/chip-netlist-skill/releases/latest).tag_name; irm "https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/$tag/install.ps1" | iex
+```
+
+macOS / Linux / Git Bash:
+
+```bash
+tag="$(curl -fsSL https://api.github.com/repos/yangzhaoxu411/chip-netlist-skill/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)" && curl -fsSL "https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/${tag}/install.sh" | bash -s -- --target codex
 ```
 
 ## Manual Install
@@ -49,6 +63,12 @@ On Windows:
 
 ```powershell
 python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" C:\path\to\board.epro2 --ref U1
+```
+
+View the installed version:
+
+```powershell
+python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
 ```
 
 
