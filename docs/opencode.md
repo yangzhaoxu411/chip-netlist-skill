@@ -1,0 +1,53 @@
+# Install for OpenCode
+
+OpenCode discovers skills from locations including `~/.config/opencode/skill/<name>/SKILL.md` and Claude-compatible `~/.claude/skills/<name>/SKILL.md`.
+
+This installer uses the native OpenCode global path:
+
+```text
+~/.config/opencode/skill/chip-netlist/SKILL.md
+```
+
+## One-Line Install
+
+These commands install from `yangzhaoxu411/chip-netlist-skill`.
+
+Windows PowerShell:
+
+```powershell
+$env:CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git"; $env:TARGET="opencode"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.ps1 | iex
+```
+
+macOS / Linux / Git Bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.sh | CHIP_NETLIST_REPO_URL="https://github.com/yangzhaoxu411/chip-netlist-skill.git" bash -s -- --target opencode
+```
+
+## Manual Install
+
+Windows:
+
+```powershell
+git clone https://github.com/yangzhaoxu411/chip-netlist-skill.git
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.config\opencode\skill" | Out-Null
+Copy-Item -Recurse -Force .\chip-netlist-skill\chip-netlist "$env:USERPROFILE\.config\opencode\skill\chip-netlist"
+```
+
+macOS / Linux:
+
+```bash
+git clone https://github.com/yangzhaoxu411/chip-netlist-skill.git
+mkdir -p ~/.config/opencode/skill
+rm -rf ~/.config/opencode/skill/chip-netlist
+cp -R chip-netlist-skill/chip-netlist ~/.config/opencode/skill/chip-netlist
+```
+
+Restart OpenCode after installation.
+
+## Usage
+
+```text
+Use chip-netlist to analyze this chip PDF data sheet and .tel netlist. Infer the configuration one functional pin group at a time and wait for my Y/N confirmation after each group.
+```
+

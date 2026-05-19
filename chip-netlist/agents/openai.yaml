@@ -1,0 +1,6 @@
+interface:
+  display_name: "Chip Netlist Reverse Engineering"
+  short_description: "Infer chip settings from PDF data sheets and .tel netlists"
+  default_prompt: "Use $chip-netlist to infer this chip configuration from a PDF data sheet and .tel netlist, confirming each pin group with me."
+policy:
+  allow_implicit_invocation: true
