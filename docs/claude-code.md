@@ -9,13 +9,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.ps1 | iex
+$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.sh | bash -s -- --target claude
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target claude
 ```
 
 ## Manual Install
@@ -42,7 +42,7 @@ Restart Claude Code after installation.
 ## Usage
 
 ```text
-Use $chip-netlist to analyze this chip PDF data sheet and .tel netlist. Infer the configuration one functional pin group at a time and wait for my Y/N confirmation after each group.
+Use $chip-netlist to analyze this .epro2 project and optional chip PDF data sheet. Infer the configuration one functional pin group at a time and wait for my Y/N confirmation after each group.
 ```
 
 

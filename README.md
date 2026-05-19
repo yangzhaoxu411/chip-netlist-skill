@@ -1,16 +1,16 @@
 # chip-netlist
 
-`chip-netlist` is an Agent Skill for reverse-engineering chip configuration from a searchable PDF data sheet and a `.tel` netlist.
+`chip-netlist` is an Agent Skill for extracting AI-ready connectivity from an EasyEDA Pro `.epro2` project and reverse-engineering chip configuration from that project plus an optional searchable PDF data sheet.
 
 ## 简介 / Introduction
 
-`chip-netlist` 是一个面向电子电路分析的 Agent Skill。它的核心用途不是简单地把网表打印出来，而是让 Codex、Claude Code、OpenCode 这类 AI 编程/分析助手按照工程师审图的方式，把芯片数据手册和实际原理图网表放在一起交叉核对，逐个引脚、逐个功能组反推出芯片在这张板子上的真实配置。
+`chip-netlist` 是一个面向电子电路分析的 Agent Skill。它的核心用途不是简单地把网表打印出来，而是让 Codex、Claude Code、OpenCode 这类 AI 编程/分析助手从 EasyEDA Pro `.epro2` 工程文件中提取 AI 容易理解的器件信息和网络连接，再按照工程师审图的方式逐个引脚、逐个功能组反推出芯片在这张板子上的真实配置。
 
-`chip-netlist` is an Agent Skill for electronic-circuit analysis. It is not just a netlist printer. It helps AI coding and analysis agents such as Codex, Claude Code, and OpenCode review a design like a hardware engineer: compare the chip data sheet with the actual schematic netlist, inspect pins and functional pin groups one by one, and reverse-engineer how the chip is really configured on the board.
+`chip-netlist` is an Agent Skill for electronic-circuit analysis. It is not just a netlist printer. It helps AI coding and analysis agents such as Codex, Claude Code, and OpenCode extract AI-friendly component and connectivity data from an EasyEDA Pro `.epro2` project, then review the design like a hardware engineer: inspect pins and functional pin groups one by one and reverse-engineer how the chip is really configured on the board.
 
-在实际硬件设计中，很多芯片的工作模式并不是通过软件设置的，而是由引脚连接决定的，例如电池节数选择、充电化学体系选择、I2C/SMBus 上拉、地址配置、开关频率电阻、NTC 温度检测、MPPT/电源路径、限流采样、电流检测、栅极驱动、补偿网络等。`chip-netlist` 会先读取数据手册中的引脚说明、配置表、典型应用电路和推荐参数，再解析 `.tel` 网表中的实际连接关系，然后根据“引脚 -> 网络 -> 外围器件 -> 数据手册规则”的证据链，推断这颗芯片被设计成了什么模式、使用了哪些参数、哪些功能被启用或禁用。
+在实际硬件设计中，很多芯片的工作模式并不是通过软件设置的，而是由引脚连接决定的，例如电池节数选择、充电化学体系选择、I2C/SMBus 上拉、地址配置、开关频率电阻、NTC 温度检测、MPPT/电源路径、限流采样、电流检测、栅极驱动、补偿网络等。`chip-netlist` 会解析 `.epro2` 工程内部的 `COMPONENT / ATTR / NET / PAD_NET` 记录，提取“位号 -> 真实器件型号/参数/封装”和“位号.引脚 -> 网络 -> 同网连接对象”，再结合数据手册中的引脚说明、配置表、典型应用电路和推荐参数，推断这颗芯片被设计成了什么模式、使用了哪些参数、哪些功能被启用或禁用。
 
-In real hardware designs, many chip operating modes are not configured by software. They are set by pin connections and external components, such as battery cell-count selection, charger chemistry selection, I2C/SMBus pullups, address pins, switching-frequency resistors, NTC temperature sensing, MPPT or power-path behavior, current-limit sampling, current sensing, gate driving, and compensation networks. `chip-netlist` reads the pin descriptions, configuration tables, typical application circuits, and recommended values in the data sheet, then parses the actual connections in the `.tel` netlist. From the evidence chain of `pin -> net -> external component -> data sheet rule`, it infers the selected mode, configured parameters, and enabled or disabled functions.
+In real hardware designs, many chip operating modes are not configured by software. They are set by pin connections and external components, such as battery cell-count selection, charger chemistry selection, I2C/SMBus pullups, address pins, switching-frequency resistors, NTC temperature sensing, MPPT or power-path behavior, current-limit sampling, current sensing, gate driving, and compensation networks. `chip-netlist` parses `COMPONENT / ATTR / NET / PAD_NET` records inside the `.epro2` project to extract `reference -> real part/value/footprint` and `reference.pin -> net -> peer pins`, then combines that evidence with data sheet pin descriptions, configuration tables, typical application circuits, and recommended values to infer selected modes, configured parameters, and enabled or disabled functions.
 
 它也可以用于辅助排查 PCB 原理图设计中的错误和不合理之处。比如：配置脚上下拉方向是否接反、应悬空的脚是否误接、关键功能脚是否缺少上拉/下拉、补偿电容电阻是否与数据手册推荐值明显不符、I2C 上拉电阻是否缺失、模拟地和功率地连接是否可疑、检测电阻/分压电阻取值是否导致阈值异常、未使用功能是否按手册要求处理、引脚连接是否与目标电池节数或目标工作模式不一致等。它不会替代 ERC/DRC，也不会替代工程师最终判断，但可以作为原理图审查、PCB 设计复核、芯片外围电路检查和硬件 bring-up 前风险排查的辅助工具。
 
@@ -19,7 +19,7 @@ It can also help find schematic and PCB-design mistakes or questionable choices.
 The skill is designed for circuit-review workflows where an agent should:
 
 - read the chip data sheet,
-- parse the `.tel` netlist,
+- parse the `.epro2` project into AI-ready JSON,
 - inspect one pin or one functional pin group at a time,
 - infer the configured function or parameter,
 - compare the actual schematic connection against the data sheet recommendation,
@@ -60,13 +60,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -74,13 +74,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target all
 ```
 
 ## Local Install From a Clone
@@ -104,12 +104,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target codex
 ```text
 Use $chip-netlist to analyze:
 Data sheet: C:\path\to\chip.pdf
-Netlist: C:\path\to\board.tel
+Project: C:\path\to\board.epro2
 
-Infer the chip configuration pin group by pin group. For each group, show netlist evidence, data sheet evidence, inferred result, and questionable points only when present. Wait for my Y/N confirmation before continuing.
+Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. For each group, show project evidence, data sheet evidence, inferred result, and questionable points only when present. Wait for my Y/N confirmation before continuing.
 ```
 
-If the agent supports implicit skills, providing both a chip PDF data sheet and a `.tel` netlist should be enough to trigger this skill.
+If the agent supports implicit skills, providing an EasyEDA Pro `.epro2` project should be enough to trigger this skill. A PDF data sheet is optional for connectivity extraction and required for data-sheet-based chip configuration judgment.
 
 ## Tool-Specific Guides
 

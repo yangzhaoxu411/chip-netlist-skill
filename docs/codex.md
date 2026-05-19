@@ -9,13 +9,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.2/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.3/install.sh | bash -s -- --target codex
 ```
 
 ## Manual Install
@@ -42,13 +42,13 @@ Restart Codex after installation so the skill index refreshes.
 ## Verify
 
 ```bash
-python ~/.codex/skills/chip-netlist/scripts/parse_tel_netlist.py /path/to/board.tel --ref U1
+python ~/.codex/skills/chip-netlist/scripts/parse_tel_netlist.py /path/to/board.epro2 --ref U1
 ```
 
 On Windows:
 
 ```powershell
-python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" C:\path\to\board.tel --ref U1
+python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" C:\path\to\board.epro2 --ref U1
 ```
 
 

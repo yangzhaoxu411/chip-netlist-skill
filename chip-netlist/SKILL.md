@@ -1,57 +1,56 @@
 ---
 name: chip-netlist
-description: Use when a user uploads, attaches, links, or provides both a chip PDF data sheet and a .tel netlist, even without naming this skill, especially for pin-level chip configuration, circuit reverse engineering, abnormal connection inspection, or per-group confirmation.
+description: Use when a user uploads, attaches, links, or provides an EasyEDA Pro .epro2 project, with or without a chip PDF data sheet, especially for AI-readable connectivity extraction, pin-level chip configuration, schematic review, abnormal connection inspection, or per-group confirmation.
 ---
 
 # Chip Netlist
 
 ## Overview
 
-Use this skill for disciplined electronic-circuit reverse engineering from a searchable PDF data sheet plus a `.tel` netlist. The core rule is evidence first: parse the netlist, read the relevant data sheet section, infer one functional pin group, self-check, then stop for user confirmation.
+Use this skill to extract AI-ready component and connectivity data from an EasyEDA Pro `.epro2` project. When a searchable PDF data sheet is also available, use the extracted project evidence plus the data sheet to reverse-engineer chip configuration one functional pin group at a time.
 
 Answer in the user's language.
 
-If the user provides both a PDF data sheet and a `.tel` netlist, treat that file pair itself as a strong trigger for this skill even when the user only says "check these files", "analyze this chip", or similar wording.
+If the user provides an `.epro2` project file, treat that file as a strong trigger for this skill even when the user only says "check this project", "extract the connections", "analyze this chip", or similar wording. A PDF data sheet is optional for connectivity extraction and required for data-sheet-based chip-configuration conclusions.
 
 ## Required Loop
 
-1. Read enough of the PDF data sheet to identify the chip model, package, pinout, pin functions, configuration tables, and typical application circuits.
-2. Parse the `.tel` netlist with `scripts/parse_tel_netlist.py` before making pin-level claims.
-3. Choose one pin or one same-function group, such as cell-count pins, chemistry pins, I2C pins, thermistor pins, current-sense pins, gate-drive pins, or power-path pins.
-4. Re-read the data sheet section for that group and map the netlist states to the documented configuration rules.
-5. Self-review before answering:
-   - Did the parser evidence match the raw netlist?
+1. Parse the `.epro2` project with `scripts/parse_tel_netlist.py` before making pin-level claims.
+2. Use the parser JSON as the primary project evidence: component metadata, real part numbers, values, footprints, nets, `Ref.Pin -> net -> peer pins`, no-net pins, and low-connection nets.
+3. If a PDF data sheet is provided, read enough of it to identify the chip model, package, pinout, pin functions, configuration tables, and typical application circuits.
+4. Choose one pin or one same-function group, such as cell-count pins, chemistry pins, I2C pins, thermistor pins, current-sense pins, gate-drive pins, or power-path pins.
+5. Re-read the data sheet section for that group and map the project connection states to the documented configuration rules.
+6. Self-review before answering:
+   - Did the parser evidence match the project records?
+   - Did the component identity come from real `.epro2` attributes such as `Manufacturer Part`, `Value`, or `partId`?
    - Did the data sheet table use the correct pin order?
    - Is the conclusion directly supported, or is it only a hypothesis?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
-6. Present only the current group, then ask for `Y/N` confirmation and stop.
-7. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
+7. Present only the current group, then ask for `Y/N` confirmation and stop.
+8. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
 
 Do not analyze the whole chip in one uninterrupted answer when the user requested per-pin or per-group confirmation.
 
-## Netlist Parsing
+## Project Parsing
 
 Run the parser from this skill directory:
 
 ```bash
-python scripts/parse_tel_netlist.py path/to/file.tel --ref U1
+python scripts/parse_tel_netlist.py path/to/project.epro2 --ref U1
 ```
 
-Use JSON when you need exact machine-readable evidence:
-
-```bash
-python scripts/parse_tel_netlist.py path/to/file.tel --ref U1 --json
-```
+The script name is kept for compatibility, but the parser is `.epro2`-only. Output is always JSON, even without `--json`.
 
 The parser extracts:
 
-- `$PACKAGES`: footprint, value, and reference designators.
-- `$NETS`: net names and connected `Ref.Pin` entries.
+- `COMPONENT` and `ATTR`: reference designators, real part names, manufacturer parts, supplier parts, values, footprints, and source object IDs.
+- `NET`: project net names.
+- `PAD_NET`: `Ref.Pin -> net` connectivity.
 - Reverse mappings: `Ref.Pin -> net -> peer pins`.
-- Missing observed pins when the package name exposes a count such as `QFN-38`.
-- Single-point nets and low-connection nets for review.
+- Focused `ref_report` data for one requested designator.
+- No-net pins, single-point nets, low-connection nets, and components without clear canonical names.
 
-Parser warnings are clues, not final findings. Confirm each warning against the data sheet before telling the user it is unreasonable.
+Parser warnings are clues, not final findings. Confirm each warning against the data sheet or design intent before telling the user it is unreasonable.
 
 ## Answer Format
 
@@ -60,14 +59,14 @@ For each group, use this structure, translated into the user's language:
 ```markdown
 Continue group N: **<functional group name>**
 
-**.tel netlist evidence**
-<Pin -> net -> peer connections. Include no-connect evidence when relevant.>
+**.epro2 project evidence**
+<Component identity plus Pin -> net -> peer connections. Include no-net evidence when relevant.>
 
 **Data sheet evidence**
-<Relevant pin function, table, threshold, formula, or typical connection.>
+<Relevant pin function, table, threshold, formula, or typical connection. Omit this section if no data sheet was provided and the task is only connectivity extraction.>
 
 **Inferred result**
-<The actual configured function/parameter. State confidence when needed.>
+<The actual configured function/parameter, or the extracted connectivity result. State confidence when needed.>
 
 **Abnormal or questionable points**
 <Only include this section when something is actually suspicious.>
@@ -87,11 +86,11 @@ Prefer grouping pins that form one configuration decision:
 - Power stage: group switch node, gate-drive, bootstrap, driver supply, MOSFETs, inductor, and current paths.
 - Grounds and supplies: group analog ground, power ground, exposed pad, internal regulators, and bypass capacitors.
 
-When the same netlist evidence supports multiple conclusions, state the primary conclusion first and defer secondary conclusions to the relevant later group.
+When the same project evidence supports multiple conclusions, state the primary conclusion first and defer secondary conclusions to the relevant later group.
 
 ## Anomaly Rules
 
-Call out issues only when supported by both netlist evidence and the data sheet. Examples:
+Call out issues only when supported by project evidence and, when applicable, the data sheet. Examples:
 
 - A strap pin is floating when the data sheet says not to float it.
 - A required bypass capacitor is missing, too far away by schematic intent, or oddly valued.
@@ -99,6 +98,7 @@ Call out issues only when supported by both netlist evidence and the data sheet.
 - Pull-ups are missing for open-drain or I2C pins.
 - A configuration combination is invalid or inconsistent with the surrounding circuit.
 - A compensation, timing, or set resistor differs significantly from the data sheet recommendation.
+- A component has no clear real part, value, or canonical name in the project.
 
 Use restrained language such as "worth noting", "may need confirmation", or "if this is a new design, review this". Do not overstate a finding without layout, BOM tolerance, or measurement evidence.
 
