@@ -373,6 +373,7 @@ def build_datasheet_lookup(components: dict[str, dict[str, Any]]) -> dict[str, A
             "manufacturer": component.get("manufacturer"),
             "manufacturer_part": component.get("manufacturer_part"),
             "supplier_part": component.get("supplier_part"),
+            "datasheet": component.get("datasheet"),
             "query_terms": query_terms,
         })
 
@@ -389,8 +390,10 @@ def build_datasheet_lookup(components: dict[str, dict[str, Any]]) -> dict[str, A
         ],
         "search_rules": [
             "Prefer manufacturer_part, then canonical_name, then supplier_part.",
+            "Prefer a component Datasheet URL already extracted from the .epro2 project before doing a new web search.",
             "Do not assume a data sheet is correct until the part number and package/function match the project component.",
             "If the official manufacturer site times out, blocks access, fails TLS/download, or is repeatedly slow, switch to China-first sources instead of retrying it.",
+            "If WebFetch/browser access fails for LCSC or other China data-sheet sites, try shell download with curl or PowerShell Invoke-WebRequest, cache the PDF locally, then read the local file.",
             "Skip ordinary resistors and capacitors by default unless the selected circuit makes them critical, such as shunts, NTC/PTC parts, timing parts, or compensation networks.",
             "Record source URLs used for every data-sheet-based conclusion.",
         ],

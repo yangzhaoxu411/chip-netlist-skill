@@ -29,10 +29,11 @@ def make_sample_epro2(path: Path):
         record({"type": "ATTR", "ticket": 5, "id": "a3"}, {"parentId": "sch_u1", "key": "Supplier Part", "value": "C486026"}),
         record({"type": "ATTR", "ticket": 6, "id": "a4"}, {"parentId": "sch_u1", "key": "Value", "value": "LM5069"}),
         record({"type": "ATTR", "ticket": 7, "id": "a5"}, {"parentId": "sch_u1", "key": "Unique ID", "value": "gge100"}),
-        record({"type": "COMPONENT", "ticket": 8, "id": "pcb_u1"}, {"partId": "LM5069MM-1/NOPB.1"}),
-        record({"type": "ATTR", "ticket": 9, "id": "a6"}, {"parentId": "pcb_u1", "key": "Designator", "value": "U1"}),
-        record({"type": "ATTR", "ticket": 10, "id": "a7"}, {"parentId": "pcb_u1", "key": "Footprint", "value": "TSSOP-10_L3.0-W3.0-P0.50"}),
-        record({"type": "ATTR", "ticket": 11, "id": "a8"}, {"parentId": "pcb_u1", "key": "Unique ID", "value": "gge100"}),
+        record({"type": "ATTR", "ticket": 8, "id": "a5b"}, {"parentId": "sch_u1", "key": "Datasheet", "value": "https://www.ti.com/lit/gpn/lm5069"}),
+        record({"type": "COMPONENT", "ticket": 9, "id": "pcb_u1"}, {"partId": "LM5069MM-1/NOPB.1"}),
+        record({"type": "ATTR", "ticket": 10, "id": "a6"}, {"parentId": "pcb_u1", "key": "Designator", "value": "U1"}),
+        record({"type": "ATTR", "ticket": 11, "id": "a7"}, {"parentId": "pcb_u1", "key": "Footprint", "value": "TSSOP-10_L3.0-W3.0-P0.50"}),
+        record({"type": "ATTR", "ticket": 12, "id": "a8"}, {"parentId": "pcb_u1", "key": "Unique ID", "value": "gge100"}),
         record({"type": "COMPONENT", "ticket": 12, "id": "pcb_r1"}, {"partId": "0402WGF1002TCE.1"}),
         record({"type": "ATTR", "ticket": 13, "id": "a9"}, {"parentId": "pcb_r1", "key": "Designator", "value": "R1"}),
         record({"type": "ATTR", "ticket": 14, "id": "a10"}, {"parentId": "pcb_r1", "key": "Value", "value": "10K"}),
@@ -120,6 +121,7 @@ class ParseNetlistTests(unittest.TestCase):
         self.assertIn("datasheet_lookup", result)
         self.assertEqual(result["components"]["U1"]["manufacturer_part"], "LM5069MM-1/NOPB")
         self.assertEqual(result["components"]["U1"]["supplier_part"], "C486026")
+        self.assertEqual(result["components"]["U1"]["datasheet"], "https://www.ti.com/lit/gpn/lm5069")
         self.assertIn("pcb_u1", result["components"]["U1"]["source_component_ids"])
         self.assertEqual(result["pins"]["U1.1"][0]["net"], "VIN")
         self.assertEqual(set(result["pins"]["U1.1"][0]["peers"]), {"R1.1"})
@@ -130,11 +132,13 @@ class ParseNetlistTests(unittest.TestCase):
 
         candidates = result["datasheet_lookup"]["candidates"]
         self.assertEqual(candidates[0]["ref"], "U1")
+        self.assertEqual(candidates[0]["datasheet"], "https://www.ti.com/lit/gpn/lm5069")
         self.assertIn("LM5069MM-1/NOPB datasheet", candidates[0]["query_terms"])
         self.assertIn("LM5069MM-1/NOPB 半导小芯 数据手册", candidates[0]["query_terms"])
         self.assertIn("LM5069MM-1/NOPB 立创商城 数据手册", candidates[0]["query_terms"])
         self.assertTrue(any("半导小芯" in item for item in result["datasheet_lookup"]["source_priority"]))
         self.assertTrue(any("立创商城" in item for item in result["datasheet_lookup"]["source_priority"]))
+        self.assertTrue(any("WebFetch" in item and "curl" in item for item in result["datasheet_lookup"]["search_rules"]))
         self.assertNotIn("R1", {candidate["ref"] for candidate in candidates})
 
     def test_parser_falls_back_to_library_meta_when_instance_value_is_null(self):

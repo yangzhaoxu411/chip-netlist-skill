@@ -127,6 +127,7 @@ When the user asks to analyze a circuit area and no data sheet was provided:
    - Search `context_role: "primary"` targets first. Search `neighbor` targets only when their rules or limits affect the current conclusion.
 5. Search the web for data sheets. Prefer sources in this order:
    - Verified local cache first: `.chip-netlist/datasheets/`, `datasheet_sources.json`, and `datasheet_facts/`.
+   - Data-sheet URLs already extracted from `.epro2` component attributes, such as `Datasheet`.
    - 半导小芯 / Semiee (China) data-sheet or product page results.
    - 立创商城 / LCSC China data-sheet or product page results. If `supplier_part` is an LCSC `C` code, use it in the query.
    - Official manufacturer product page or PDF data sheet.
@@ -139,6 +140,29 @@ When the user asks to analyze a circuit area and no data sheet was provided:
 9. If no reliable data sheet can be found, say so explicitly and limit conclusions to project connectivity evidence.
 
 Never load a batch of unrelated data sheets. Load or search only the data sheets needed for the current context packet.
+
+## Data Sheet Retrieval Fallbacks
+
+When WebFetch, browser fetching, or an agent web tool cannot access LCSC, Semiee, official manufacturer sites, or other data-sheet pages, do not conclude that the data sheet is unavailable until shell-based retrieval has also been tried.
+
+Fallback order:
+
+1. Use any verified local cache in `.chip-netlist/datasheets/`, `datasheet_sources.json`, or `datasheet_facts/`.
+2. Use any `Datasheet` URL already extracted from the `.epro2` project or `datasheet_lookup.candidates[].datasheet`.
+3. Try shell download with `curl -fL`, `wget`, or PowerShell `Invoke-WebRequest`, because these may succeed when WebFetch fails.
+4. For LCSC / 立创商城:
+   - Prefer an existing LCSC data-sheet URL from the project attributes.
+   - If only `supplier_part` such as `C486026` is known, search LCSC by that code and the manufacturer part.
+   - If a LCSC HTML data-sheet/product page is downloaded, extract PDF URLs matching `https://atta.szlcsc.com...pdf` or other `.pdf` links from the HTML, then download the PDF.
+   - Common shell pattern: `curl -fL -o .chip-netlist/tmp/lcsc.html "<URL>"`, then extract with `grep -oE 'https://atta\.szlcsc\.com[^"]+\.pdf|https?://[^"]+\.pdf'` or a small Python regex if `grep` options differ.
+5. Save downloaded PDFs into `.chip-netlist/datasheets/<part>.pdf` or another workspace path that the agent can read. On Windows, pass a Windows-style absolute path to file-reading tools; if a file was downloaded under `/tmp`, copy it back into the workspace first.
+6. Extract PDF text with whichever local tool is available:
+   - Prefer `pdftotext -layout "<pdf>" "<txt>"`.
+   - If `pdftoppm` is missing, still use `pdftotext`; image rendering is not required for searchable PDFs.
+   - Search extracted text for exact part numbers and pin/function keywords such as `pin`, `source`, `drain`, `gate`, `OUT`, `SENSE`, `GATE`, `FB`, `CS`, and threshold/formula terms.
+7. If the PDF is scanned, blocked, corrupted, or text extraction is incomplete, tell the user exactly what failed and ask for a PDF, screenshot, OCR text, or manual confirmation of the missing pin table/formula.
+
+Never fall back from a failed data-sheet fetch to package-number habits or generic package assumptions. In particular, do not infer MOSFET source/drain/gate assignments from statements like "pins 1-3 are drain" or "pin 5 is source" unless the exact component data sheet or circuit-connectivity evidence proves it.
 
 ## Single-Group Confirmation Gate
 
@@ -267,4 +291,4 @@ Use restrained language such as "worth noting", "may need confirmation", or "if 
 
 ## PDF Handling
 
-If the PDF text is extractable, use local PDF text extraction and search for pin names, tables, formulas, and typical applications. If the PDF is scanned or extraction fails, pause and ask for OCR or a searchable data sheet before doing detailed pin inference.
+If the PDF text is extractable, use local PDF text extraction and search for pin names, tables, formulas, and typical applications. If WebFetch cannot retrieve the PDF, use the data-sheet retrieval fallbacks above before giving up. If the PDF is scanned or extraction fails, pause and ask for OCR, screenshots, or a searchable data sheet before doing detailed pin inference.

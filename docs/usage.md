@@ -48,7 +48,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.11"
+    "version": "0.1.12"
   }
 }
 ```
@@ -193,6 +193,9 @@ When the user asks to analyze a circuit section and no data sheet is supplied, t
 - Prefer verified local cache first, then 半导小芯 / Semiee (China), then 立创商城 / LCSC China, then official manufacturer product pages or PDF data sheets, then other authorized distributors such as DigiKey, Mouser, or Arrow, then data-sheet mirrors only as a fallback.
 - If the official manufacturer site has network problems such as timeout, access denial, region blocking, TLS/download failure, or repeated slow responses, stop retrying it and switch to the China-first sources above.
 - Use `supplier_part` LCSC `C` codes when searching 立创商城.
+- Prefer `Datasheet` URLs extracted from the `.epro2` project before doing a new search.
+- If WebFetch or browser access fails, try shell-based retrieval with `curl`, `wget`, or PowerShell `Invoke-WebRequest`, then cache the PDF in `.chip-netlist/datasheets/`.
+- For LCSC pages, download the HTML page when possible and extract PDF links such as `https://atta.szlcsc.com...pdf`; if the file lands in `/tmp`, copy it into the workspace or another Windows-readable path before using file-reading tools.
 - Verify that the data sheet matches the exact part number, family, package, and function before using it.
 - Record verified sources and local cache paths in `datasheet_sources.json`.
 - Extract only the facts needed for the current analysis into `datasheet_facts/<part>.json`.
@@ -200,6 +203,8 @@ When the user asks to analyze a circuit section and no data sheet is supplied, t
 - If no reliable data sheet is found, say so and limit the conclusion to project connectivity evidence.
 
 Do not load a large batch of unrelated PDFs. Load or search only the data sheets needed for the current context packet.
+
+If PDF text extraction is needed, use `pdftotext -layout` when available and search the text for exact part numbers, pin names, formulas, and threshold terms. If the PDF is scanned or extraction is incomplete, ask the user for OCR, screenshots, or manual confirmation. Do not fall back to generic package pin assumptions.
 
 ## Component Pin Function Deduction
 
