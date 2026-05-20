@@ -125,9 +125,13 @@ When the user asks to analyze a circuit area and no data sheet was provided:
    - Prefer `datasheet_lookup.targets` in a context packet, then `datasheet_lookup.candidates` in the full netlist; if the selected area includes a component not listed there, build searches from `manufacturer_part`, `canonical_name`, `supplier_part`, and `value`.
    - Search `context_role: "primary"` targets first. Search `neighbor` targets only when their rules or limits affect the current conclusion.
 5. Search the web for data sheets. Prefer sources in this order:
+   - Verified local cache first: `.chip-netlist/datasheets/`, `datasheet_sources.json`, and `datasheet_facts/`.
+   - 半导小芯 / Semiee (China) data-sheet or product page results.
+   - 立创商城 / LCSC China data-sheet or product page results. If `supplier_part` is an LCSC `C` code, use it in the query.
    - Official manufacturer product page or PDF data sheet.
-   - Authorized distributor pages such as DigiKey, Mouser, Arrow, or LCSC.
-   - Third-party data-sheet mirrors only when primary sources are unavailable.
+   - Other authorized distributor pages such as DigiKey, Mouser, or Arrow.
+   - Third-party data-sheet mirrors only when the sources above are unavailable.
+   - If the official manufacturer site has network problems such as timeout, access denial, region blocking, TLS/download failure, or repeated slow responses, do not keep retrying it. Switch to the China-first sources above, then verify the document strictly before use.
 6. Verify that the found document matches the exact part number, family, package, and function before using it.
 7. Record verified URLs in `datasheet_sources.json` and, when useful, extracted facts in `datasheet_facts/<part>.json`.
 8. Cite the data sheet or product-page URLs used for every data-sheet-based conclusion.

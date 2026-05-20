@@ -48,7 +48,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.8"
+    "version": "0.1.9"
   }
 }
 ```
@@ -189,7 +189,9 @@ When the user asks to analyze a circuit section and no data sheet is supplied, t
 - Prefer `datasheet_lookup.targets` from the context packet. If there is no context packet, use full-netlist `datasheet_lookup.candidates`.
 - Search `context_role: "primary"` targets first. Search `neighbor` targets only when their data sheet affects the current conclusion.
 - Prefer `manufacturer_part`, then `canonical_name`, then `supplier_part` when building search queries.
-- Prefer official manufacturer product pages or PDF data sheets, then authorized distributors such as DigiKey, Mouser, Arrow, or LCSC, then data-sheet mirrors only as a fallback.
+- Prefer verified local cache first, then 半导小芯 / Semiee (China), then 立创商城 / LCSC China, then official manufacturer product pages or PDF data sheets, then other authorized distributors such as DigiKey, Mouser, or Arrow, then data-sheet mirrors only as a fallback.
+- If the official manufacturer site has network problems such as timeout, access denial, region blocking, TLS/download failure, or repeated slow responses, stop retrying it and switch to the China-first sources above.
+- Use `supplier_part` LCSC `C` codes when searching 立创商城.
 - Verify that the data sheet matches the exact part number, family, package, and function before using it.
 - Record verified sources and local cache paths in `datasheet_sources.json`.
 - Extract only the facts needed for the current analysis into `datasheet_facts/<part>.json`.

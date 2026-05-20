@@ -62,7 +62,8 @@ The skill can work without user-provided data sheets. When the user asks to anal
 - identify the matching refs, nets, rails, and peer components from the generated JSON,
 - choose relevant active or critical parts from `datasheet_lookup.candidates`,
 - search online for matching data sheets or product pages,
-- prefer official manufacturer sources, then authorized distributors, then data-sheet mirrors only as fallback,
+- prefer verified local cache first, then 半导小芯 / Semiee (China), then 立创商城 / LCSC China, then official manufacturer sources, then other authorized distributors, then data-sheet mirrors only as fallback,
+- switch to China-first sources quickly when the official site has timeout, access, region, TLS, or download problems,
 - cite the source URLs used for every data-sheet-based conclusion,
 - clearly state when no reliable data sheet was found.
 
@@ -116,13 +117,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -130,13 +131,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest

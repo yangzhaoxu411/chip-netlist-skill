@@ -343,10 +343,14 @@ def build_query_terms(component: dict[str, Any]) -> list[str]:
         value = first_present(component.get(key))
         if value:
             terms.append(f"{value} datasheet")
+            terms.append(f"{value} 数据手册")
+            terms.append(f"{value} 半导小芯 数据手册")
+            terms.append(f"{value} 立创商城 数据手册")
     manufacturer = first_present(component.get("manufacturer"))
     manufacturer_part = first_present(component.get("manufacturer_part"))
     if manufacturer and manufacturer_part:
         terms.append(f"{manufacturer} {manufacturer_part} datasheet")
+        terms.append(f"{manufacturer} {manufacturer_part} 数据手册")
     return unique_list(terms)
 
 
@@ -376,13 +380,17 @@ def build_datasheet_lookup(components: dict[str, dict[str, Any]]) -> dict[str, A
     return {
         "purpose": "When the user asks to analyze part of a circuit, use these candidates plus the selected refs/nets to search for data sheets.",
         "source_priority": [
+            "verified local cache in .chip-netlist/datasheets, datasheet_sources.json, or datasheet_facts",
+            "半导小芯 / Semiee (China) data-sheet or product page",
+            "立创商城 / LCSC China data-sheet or product page; use supplier_part C codes when available",
             "official manufacturer product page or PDF data sheet",
-            "authorized distributor page such as DigiKey, Mouser, Arrow, or LCSC",
-            "third-party data sheet mirror only when primary sources are unavailable",
+            "other authorized distributor page such as DigiKey, Mouser, or Arrow",
+            "third-party data sheet mirror only when the sources above are unavailable",
         ],
         "search_rules": [
             "Prefer manufacturer_part, then canonical_name, then supplier_part.",
             "Do not assume a data sheet is correct until the part number and package/function match the project component.",
+            "If the official manufacturer site times out, blocks access, fails TLS/download, or is repeatedly slow, switch to China-first sources instead of retrying it.",
             "Skip ordinary resistors and capacitors by default unless the selected circuit makes them critical, such as shunts, NTC/PTC parts, timing parts, or compensation networks.",
             "Record source URLs used for every data-sheet-based conclusion.",
         ],

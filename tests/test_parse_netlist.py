@@ -131,6 +131,10 @@ class ParseNetlistTests(unittest.TestCase):
         candidates = result["datasheet_lookup"]["candidates"]
         self.assertEqual(candidates[0]["ref"], "U1")
         self.assertIn("LM5069MM-1/NOPB datasheet", candidates[0]["query_terms"])
+        self.assertIn("LM5069MM-1/NOPB 半导小芯 数据手册", candidates[0]["query_terms"])
+        self.assertIn("LM5069MM-1/NOPB 立创商城 数据手册", candidates[0]["query_terms"])
+        self.assertTrue(any("半导小芯" in item for item in result["datasheet_lookup"]["source_priority"]))
+        self.assertTrue(any("立创商城" in item for item in result["datasheet_lookup"]["source_priority"]))
         self.assertNotIn("R1", {candidate["ref"] for candidate in candidates})
 
     def test_parser_falls_back_to_library_meta_when_instance_value_is_null(self):
