@@ -36,6 +36,7 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
    - Is the conclusion directly supported, or is it only a hypothesis?
    - Did the answer explain what the connection does, not only how it is connected?
    - If a value-setting component is present, did the answer calculate the resulting parameter with formula, units, and assumptions, or clearly state what missing data prevents calculation?
+   - If a peer component pin function was named, was that function deduced from circuit connectivity and data-sheet evidence instead of assumed from package pin-number conventions?
    - Did this answer stay inside exactly one confirmation group?
    - Would the user be able to accept or reject this group without also reviewing a later group?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
@@ -174,6 +175,25 @@ Rules:
 - For pull-ups, pull-downs, and strap pins, state the selected logic level, mode, address, enabled/disabled function, or default behavior.
 - For compensation, filters, snubbers, and bypass networks, explain the intended stability, filtering, transient, or noise role. Only calculate exact dynamics when the data sheet or surrounding values support it.
 - If the current group is pure connectivity extraction and no function can be inferred, say that explicitly instead of pretending a configuration was determined.
+
+## Component Pin Function Deduction Rule
+
+Never infer a peer component's pin function from pin numbering conventions alone. For MOSFETs, multi-pin transistors, modules, connectors, relays, multi-channel ICs, and any component where package pin numbering can vary, pin labels such as source, drain, gate, input, output, or channel must be deduced from evidence.
+
+Required method:
+
+1. Identify the controlling or surrounding IC pin functions from the relevant data sheet first, such as `OUT`, `SENSE`, `GATE`, `VIN`, `SW`, `BOOT`, `FB`, `CS`, or `PGND`.
+2. Use parser evidence from `Ref.Pin -> net -> peer pins` to find which external component pins share those same nets.
+3. Map the external component pin function from that net relationship. Example: if a hot-swap controller data sheet says `OUT` connects to the pass MOSFET source, and parser evidence shows `U6.OUT` is on the same net as `Q3.1`, `Q3.2`, and `Q3.3`, then those Q3 pins are source pins in this circuit.
+4. Use the external component's own data sheet only after this circuit-based mapping, as a cross-check for the exact package and pinout.
+5. If the parser shows fewer pins than the package normally has, mention the missing observed pins but do not assign their functions from numbering alone.
+
+MOSFET-specific rules:
+
+- Do not assume "pins 1-3 are drain" or "pin 5 is source" from a package habit.
+- Deduce source/drain/gate from circuit role and controlling IC pins: which side is connected to `VIN` or the sense resistor, which side is connected to `OUT` or load, and which pin is connected to `GATE`.
+- If circuit role and the MOSFET data sheet disagree, call that out as a possible part/package mismatch or parser/evidence issue instead of silently choosing one.
+- If the mapping cannot be proven from connectivity plus data sheets, say "pin function not determined" and ask for the MOSFET data sheet or schematic confirmation.
 
 ## Answer Format
 
