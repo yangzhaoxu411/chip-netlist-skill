@@ -67,8 +67,16 @@ python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py
 
 View the installed version:
 
+Windows:
+
 ```powershell
 python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
+```
+
+macOS / Linux:
+
+```bash
+python ~/.codex/skills/chip-netlist/scripts/parse_tel_netlist.py --version
 ```
 
 

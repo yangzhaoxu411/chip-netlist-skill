@@ -158,16 +158,44 @@ tag="$(curl -fsSL https://api.github.com/repos/yangzhaoxu411/chip-netlist-skill/
 
 ## View Version
 
-Codex on Windows:
+Windows PowerShell:
+
+Codex:
 
 ```powershell
 python "$env:USERPROFILE\.codex\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
 ```
 
-macOS / Linux:
+Claude Code:
+
+```powershell
+python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
+```
+
+OpenCode:
+
+```powershell
+python "$env:USERPROFILE\.config\opencode\skill\chip-netlist\scripts\parse_tel_netlist.py" --version
+```
+
+macOS / Linux / Git Bash:
+
+Codex:
 
 ```bash
 python ~/.codex/skills/chip-netlist/scripts/parse_tel_netlist.py --version
+```
+
+Claude Code:
+
+```bash
+python ~/.claude/skills/chip-netlist/scripts/parse_tel_netlist.py --version
+```
+
+OpenCode:
+
+```bash
+python ~/.config/opencode/skill/chip-netlist/scripts/parse_tel_netlist.py --version
 ```
 
 ## Local Install From a Clone

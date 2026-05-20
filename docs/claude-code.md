@@ -28,8 +28,16 @@ $env:TARGET="claude"; $tag=(irm https://api.github.com/repos/yangzhaoxu411/chip-
 
 View the installed version:
 
+Windows:
+
 ```powershell
 python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
+```
+
+macOS / Linux:
+
+```bash
+python ~/.claude/skills/chip-netlist/scripts/parse_tel_netlist.py --version
 ```
 
 ## Manual Install

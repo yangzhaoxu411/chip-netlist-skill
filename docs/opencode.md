@@ -34,8 +34,16 @@ $env:TARGET="opencode"; $tag=(irm https://api.github.com/repos/yangzhaoxu411/chi
 
 View the installed version:
 
+Windows:
+
 ```powershell
 python "$env:USERPROFILE\.config\opencode\skill\chip-netlist\scripts\parse_tel_netlist.py" --version
+```
+
+macOS / Linux:
+
+```bash
+python ~/.config/opencode/skill/chip-netlist/scripts/parse_tel_netlist.py --version
 ```
 
 ## Manual Install
