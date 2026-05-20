@@ -2,6 +2,9 @@
 
 `chip-netlist` is an Agent Skill for extracting AI-ready connectivity from an EasyEDA Pro `.epro2` project and reverse-engineering chip configuration from that project plus an optional searchable PDF data sheet.
 
+**文件范围 / File scope:** 当前版本只支持 EasyEDA Pro `.epro2` 工程文件；不支持 `.epro`、`.tel` 或其它网表格式。  
+**File scope:** This version supports only EasyEDA Pro `.epro2` project files; `.epro`, `.tel`, and other netlist formats are not supported.
+
 ## 简介 / Introduction
 
 `chip-netlist` 是一个面向电子电路分析的 Agent Skill。它的核心用途不是简单地把网表打印出来，而是让 Codex、Claude Code、OpenCode 这类 AI 编程/分析助手从 EasyEDA Pro `.epro2` 工程文件中提取 AI 容易理解的器件信息和网络连接，再按照工程师审图的方式逐个引脚、逐个功能组反推出芯片在这张板子上的真实配置。
@@ -20,11 +23,13 @@ The skill is designed for circuit-review workflows where an agent should:
 
 - read the chip data sheet,
 - parse the `.epro2` project into AI-ready JSON,
-- inspect one pin or one functional pin group at a time,
+- inspect one small pin group or one functional decision at a time,
 - infer the configured function or parameter,
 - compare the actual schematic connection against the data sheet recommendation,
 - call out questionable schematic or PCB-design choices only when there is evidence,
 - stop for `Y/N` confirmation before continuing.
+
+For dense power ICs, the default group should be small. For example, a hot-swap controller should be reviewed as separate groups for `VIN/SENSE/OUT/GATE`, `UVLO`, `OVLO`, `TIMER`, `PWR`, and `PGD/status`, instead of one large all-in-one answer.
 
 Typical review targets include configuration pins, mode-select pins, pullups and pulldowns, sense networks, divider networks, compensation networks, I2C/SMBus pins, power-path pins, thermal/NTC pins, and pins that are tied high, tied low, floating, or connected differently from the data sheet's typical application.
 
@@ -33,6 +38,54 @@ The skill includes a deterministic parser:
 ```text
 chip-netlist/scripts/parse_tel_netlist.py
 ```
+
+The parser output is designed to be re-used by AI agents. Generated JSON includes:
+
+```json
+{
+  "schema": "chip-netlist-ai-json-v1",
+  "generated_by": {
+    "tool": "chip-netlist"
+  }
+}
+```
+
+If a user later uploads this JSON and asks to analyze a circuit section, the agent can use it directly without the original `.epro2` file.
+
+## Automatic Data Sheet Lookup
+
+The skill can work without user-provided data sheets. When the user asks to analyze a circuit area such as `U6`, `+28V_IN`, `12V output`, or `Q1/Q2 surrounding circuit`, the agent should:
+
+- identify the matching refs, nets, rails, and peer components from the generated JSON,
+- choose relevant active or critical parts from `datasheet_lookup.candidates`,
+- search online for matching data sheets or product pages,
+- prefer official manufacturer sources, then authorized distributors, then data-sheet mirrors only as fallback,
+- cite the source URLs used for every data-sheet-based conclusion,
+- clearly state when no reliable data sheet was found.
+
+Ordinary resistors and capacitors are skipped by default unless they are part of a critical network such as shunts, feedback dividers, NTC/PTC sensing, timing, or compensation.
+
+## Memory-Safe Workbench
+
+For large boards, the skill should not load the full project and many unrelated PDFs into one long conversation. Use a persistent `.chip-netlist` workbench and analyze one small context packet at a time:
+
+```bash
+python chip-netlist/scripts/parse_tel_netlist.py board.epro2 --workdir .chip-netlist
+python chip-netlist/scripts/parse_tel_netlist.py board.epro2 --context U5 --workdir .chip-netlist
+```
+
+The workbench stores:
+
+- `chip_netlist.json`: full extracted project evidence,
+- `component_index.json`: compact component identity and search-term index,
+- `context_packets/<area>.json`: small AI-loadable circuit slices,
+- `datasheet_sources.json`: verified data-sheet URLs and local PDF paths,
+- `datasheet_facts/`: extracted pinouts, formulas, limits, and application notes,
+- `analysis_state.json`: confirmed/pending/rejected groups,
+- `analysis_report.md`: human-readable review notes.
+
+This lets Codex, Claude Code, or OpenCode resume after long conversations, reload only the current circuit area, and avoid confusing unrelated component data sheets.
+Context packets mark data-sheet targets as `primary` or `neighbor`, so the agent searches the selected chip first and only checks neighboring parts when their limits or formulas matter.
 
 ## Repository Layout
 
@@ -60,13 +113,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -74,13 +127,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.4/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest
