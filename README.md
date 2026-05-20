@@ -23,8 +23,11 @@ The skill is designed for circuit-review workflows where an agent should:
 
 - read the chip data sheet,
 - parse the `.epro2` project into AI-ready JSON,
-- inspect one small pin group or one functional decision at a time,
+- inspect exactly one small pin group or one functional decision per reply,
 - infer the configured function or parameter,
+- explain what the connection makes the circuit do, not only how it is connected,
+- calculate resulting values such as current limits, thresholds, timing, frequency, or logic state when data sheet formulas and project values are available,
+- self-check the focused judgment before answering,
 - compare the actual schematic connection against the data sheet recommendation,
 - call out questionable schematic or PCB-design choices only when there is evidence,
 - stop for `Y/N` confirmation before continuing.
@@ -113,13 +116,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -127,13 +130,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest
@@ -221,7 +224,7 @@ Use $chip-netlist to analyze:
 Data sheet: C:\path\to\chip.pdf
 Project: C:\path\to\board.epro2
 
-Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. For each group, show project evidence, data sheet evidence, inferred result, and questionable points only when present. Wait for my Y/N confirmation before continuing.
+Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. In each reply, focus on exactly one small group, self-check the judgment before answering, show project evidence, data sheet evidence, functional/electrical effect, inferred result, and questionable points only when present. Do not stop at connectivity; when a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when possible. Wait for my Y/N confirmation before continuing.
 ```
 
 If the agent supports implicit skills, providing an EasyEDA Pro `.epro2` project should be enough to trigger this skill. A PDF data sheet is optional for connectivity extraction and required for data-sheet-based chip configuration judgment.

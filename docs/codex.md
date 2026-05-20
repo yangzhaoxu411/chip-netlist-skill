@@ -9,13 +9,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Windows PowerShell:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.ps1 | iex
 ```
 
 macOS / Linux / Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.7/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.8/install.sh | bash -s -- --target codex
 ```
 
 ## Update to Latest

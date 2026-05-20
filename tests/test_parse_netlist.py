@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "chip-netlist" / "scripts" / "parse_tel_netlist.py"
+SKILL_DIR = SCRIPT.parents[1]
 SPEC = importlib.util.spec_from_file_location("parse_tel_netlist", SCRIPT)
 parser = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -93,7 +94,8 @@ def make_sample_epro2(path: Path):
 
 class ParseNetlistTests(unittest.TestCase):
     def test_version_file_and_cli_report_current_version(self):
-        self.assertEqual(parser.load_version(), "0.1.7")
+        expected_version = (SKILL_DIR / "VERSION").read_text(encoding="utf-8").strip()
+        self.assertEqual(parser.load_version(), expected_version)
 
         completed = subprocess.run(
             [sys.executable, str(SCRIPT), "--version"],
@@ -102,7 +104,7 @@ class ParseNetlistTests(unittest.TestCase):
             text=True,
         )
 
-        self.assertEqual(completed.stdout.strip(), "chip-netlist 0.1.7")
+        self.assertEqual(completed.stdout.strip(), f"chip-netlist {expected_version}")
 
     def test_epro2_parser_extracts_ai_ready_components_and_connections(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,7 +116,7 @@ class ParseNetlistTests(unittest.TestCase):
         self.assertEqual(result["source_type"], "epro2")
         self.assertEqual(result["schema"], "chip-netlist-ai-json-v1")
         self.assertEqual(result["generated_by"]["tool"], "chip-netlist")
-        self.assertEqual(result["generated_by"]["version"], "0.1.7")
+        self.assertEqual(result["generated_by"]["version"], parser.load_version())
         self.assertIn("datasheet_lookup", result)
         self.assertEqual(result["components"]["U1"]["manufacturer_part"], "LM5069MM-1/NOPB")
         self.assertEqual(result["components"]["U1"]["supplier_part"], "C486026")

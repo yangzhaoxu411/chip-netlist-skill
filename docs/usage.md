@@ -48,7 +48,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.7"
+    "version": "0.1.8"
   }
 }
 ```
@@ -99,7 +99,7 @@ Use $chip-netlist to analyze:
 Data sheet: /path/to/chip.pdf
 Project: /path/to/board.epro2
 
-Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one functional pin group at a time. For each group, show .epro2 project evidence, data sheet evidence, inferred result, and questionable points only when present. Wait for my Y/N confirmation before moving to the next group.
+Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one small functional pin group at a time. In each reply, focus on exactly one current group, self-check your judgment before answering, show .epro2 project evidence, data sheet evidence, the functional/electrical effect of the connection, inferred result, and questionable points only when present. When a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when the data sheet provides enough information. Wait for my Y/N confirmation before moving to the next group.
 ```
 
 ## Expected Workflow
@@ -112,10 +112,12 @@ Start by parsing the .epro2 project into AI-ready JSON. Then identify the target
 6. If a PDF is provided, read only the relevant pin table, configuration table, formulas, limits, and typical circuits.
 7. If no PDF is provided, use `datasheet_lookup.targets` in the context packet to search for data sheets online.
 8. Store verified source URLs in `datasheet_sources.json` and extracted facts in `datasheet_facts/`.
-9. Pick the smallest useful functional pin group, such as one supply path, one sense pair, one threshold divider, one timer pin, one gate-drive path, or one strap/config table.
-10. Infer the configured function or parameter, then self-check the reasoning.
-11. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
-12. Ask the user to confirm with `Y/N` before moving to the next group.
+9. Pick exactly one smallest useful functional pin group for the current reply, such as one supply path, one sense pair, one threshold divider, one timer pin, one gate-drive path, or one strap/config table.
+10. Infer the configured function or parameter. Do not stop at connectivity; explain what the connection makes the circuit do.
+11. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
+12. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
+13. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
+14. Ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
 
 ## Parser Usage
 
@@ -200,13 +202,16 @@ Do not load a large batch of unrelated PDFs. Load or search only the data sheets
 
 Each analysis group should include:
 
+- one explicit current focus group,
 - `.epro2 project evidence`,
 - `data sheet evidence` when a PDF was provided or found online,
+- `functional/electrical effect`, including formulas and numeric results when possible,
 - `inferred result`,
 - `abnormal/questionable points` only if something is suspicious,
+- one concise self-review result,
 - a `Y/N` confirmation question when the user requested per-group confirmation.
 
-The agent should not dump the entire chip analysis at once when per-group confirmation was requested.
+The agent should not dump the entire chip analysis at once when per-group confirmation was requested. Each reply should contain exactly one group. Do not include multiple `Continue group` sections, multiple independent conclusions, or a table of pending group results in the same reply.
 
 For dense power ICs, the default grouping should be finer than a whole functional block. For example, a hot-swap controller should normally be split into:
 
@@ -217,4 +222,4 @@ For dense power ICs, the default grouping should be finer than a whole functiona
 - `PWR or power-limit resistor`,
 - `PGD and other logic/status pins`.
 
-Analyze one of these groups, ask for `Y/N`, then continue only after confirmation.
+Analyze one of these groups, ask for `Y/N`, then stop. Continue only after confirmation.

@@ -24,17 +24,24 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
 5. If the user names a circuit area, reference designator, net, rail, connector, or function, locate the matching refs/nets in the JSON and expand only the directly relevant peer pins and components before analysis.
 6. If the user did not provide a PDF data sheet, identify relevant active or critical components from the selected context packet and search the web for their data sheets before judging the circuit.
 7. If a PDF data sheet is provided, read enough of it to identify the chip model, package, pinout, pin functions, configuration tables, and typical application circuits.
-8. Choose the smallest useful pin or same-function group, such as one supply pair, one sense pair, one threshold divider, one timer pin, one gate-drive path, one interface pair, or one strap/config table.
-9. Re-read the relevant data sheet section and map the project connection states to the documented configuration rules.
-10. Self-review before answering:
+8. Before analyzing, choose exactly one `current_focus_group` for this turn. It must be one pin, one pair, or one indivisible configuration decision. If several groups are available, pick only the highest-priority unresolved group and leave the rest for later turns.
+9. Choose the smallest useful pin or same-function group, such as one supply pair, one sense pair, one threshold divider, one timer pin, one gate-drive path, one interface pair, or one strap/config table.
+10. Re-read the relevant data sheet section and map the project connection states to the documented configuration rules.
+11. Convert the connection into its functional or electrical effect. If an external resistor, capacitor, divider, shunt, strap, pull-up, or pull-down sets a parameter, calculate the resulting current limit, threshold, timing, switching frequency, logic state, gain, or enabled/disabled behavior when the data sheet provides enough information.
+12. Self-review before answering:
    - Did the parser evidence match the project records?
    - Did the component identity come from real `.epro2` attributes such as `Manufacturer Part`, `Value`, or `partId`?
    - If data sheets were found online, are the source URLs recorded and does the part number/package/function match the project component?
    - Did the data sheet table use the correct pin order?
    - Is the conclusion directly supported, or is it only a hypothesis?
+   - Did the answer explain what the connection does, not only how it is connected?
+   - If a value-setting component is present, did the answer calculate the resulting parameter with formula, units, and assumptions, or clearly state what missing data prevents calculation?
+   - Did this answer stay inside exactly one confirmation group?
+   - Would the user be able to accept or reject this group without also reviewing a later group?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
-11. Present only the current group, then ask for `Y/N` confirmation and stop.
-12. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
+13. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data sheet section, then self-review again.
+14. Present only the current group, then ask for `Y/N` confirmation and stop.
+15. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
 
 Do not analyze the whole chip in one uninterrupted answer when the user requested per-pin or per-group confirmation. For hot-swap, regulators, chargers, BMS, and other dense power ICs, split the chip into micro-groups by default.
 
@@ -128,6 +135,41 @@ When the user asks to analyze a circuit area and no data sheet was provided:
 
 Never load a batch of unrelated data sheets. Load or search only the data sheets needed for the current context packet.
 
+## Single-Group Confirmation Gate
+
+Every analysis reply is a checkpoint for exactly one group. The agent must start by focusing on one named group and must not drift into other groups in the same answer.
+
+Rules:
+
+- Start each analysis turn by naming the single current focus group.
+- Do not output more than one `Continue group N` section in one reply.
+- Do not analyze, infer, or ask confirmation for a second group in the same reply.
+- Do not include a table of multiple pending group conclusions. If the user asks for a roadmap, keep it separate from the current analysis and still analyze only one group.
+- Same-function pins may be analyzed together only when they form one indivisible configuration decision, such as a full strap bit field or a differential sense pair. If the user would need to confirm multiple independent decisions, split them.
+- If a current group needs neighbor context, include only the minimum neighbor evidence needed to support this group's conclusion. Defer the neighbor's own configuration judgment to its later group.
+- After `Y`, `OK`, or "continue", choose the next single group and repeat the same gate.
+- After `N`, revise only the current group. Do not move on until the current group is corrected or explicitly skipped.
+
+Before sending the answer, perform an internal self-review against these rules. In the user-facing answer, include only a concise self-review result, not hidden chain-of-thought.
+
+## Function and Parameter Gate
+
+Connectivity evidence is necessary but not sufficient for circuit analysis. After describing `Ref.Pin -> net -> peer pins`, the agent must answer: "What does this connection make the circuit do?"
+
+Rules:
+
+- Do not stop at "R/C/shunt/divider is connected here" when that component configures a chip behavior.
+- If the data sheet gives a formula, threshold, typical value, or table, calculate the configured result using the project component values. Include units.
+- If the data sheet gives min/typ/max thresholds and the calculation affects safety or design margin, compute or at least mention the resulting range.
+- If a value is missing from the `.epro2` evidence, search nearby attributes and peer components first. If it is still missing, state that the parameter cannot be calculated and identify the missing value.
+- If the exact formula is unavailable but the function is clear, explain the qualitative effect and mark the numeric result as not determined.
+- For sense resistors, shunts, and current-limit pins, calculate current limit or sense threshold when possible.
+- For resistor dividers, calculate threshold voltage, enable/disable point, OV/UV point, feedback target, or address/strap logic state when possible.
+- For timing capacitors or resistors, calculate delay, blanking time, soft-start time, retry period, or oscillator frequency when possible.
+- For pull-ups, pull-downs, and strap pins, state the selected logic level, mode, address, enabled/disabled function, or default behavior.
+- For compensation, filters, snubbers, and bypass networks, explain the intended stability, filtering, transient, or noise role. Only calculate exact dynamics when the data sheet or surrounding values support it.
+- If the current group is pure connectivity extraction and no function can be inferred, say that explicitly instead of pretending a configuration was determined.
+
 ## Answer Format
 
 For each group, use this structure, translated into the user's language:
@@ -135,17 +177,25 @@ For each group, use this structure, translated into the user's language:
 ```markdown
 Continue group N: **<functional group name>**
 
+Current focus: <one sentence defining the only pins/nets/parts being judged in this reply.>
+
 **.epro2 project evidence**
 <Component identity plus Pin -> net -> peer connections. Include no-net evidence when relevant.>
 
 **Data sheet evidence**
 <Relevant pin function, table, threshold, formula, or typical connection. Include source URLs when found online. Omit this section only when the task is pure connectivity extraction or no reliable data sheet was found.>
 
+**Functional/electrical effect**
+<Explain what this connection makes the circuit do. Include formula and numeric calculation with units when component values and data sheet rules make that possible. If a numeric result cannot be calculated, state exactly what is missing.>
+
 **Inferred result**
-<The actual configured function/parameter, or the extracted connectivity result. State confidence when needed.>
+<The actual configured function/parameter and its practical meaning, or the extracted connectivity result when the task is pure connectivity extraction. State confidence when needed.>
 
 **Abnormal or questionable points**
 <Only include this section when something is actually suspicious.>
+
+**Self-review result**
+<One concise sentence confirming the conclusion is limited to this group, explains the function/electrical effect, and is directly supported by the project evidence plus data sheet/source evidence.>
 
 Please confirm whether this group is correct: Y/N
 ```
@@ -163,7 +213,7 @@ Default micro-group examples:
 - LDO: first `VIN/VOUT/GND/tab`, then input/output capacitors, then EN/PG/ADJ if present.
 - Charger/BMS: first supply/ground, then cell-sense stack, then current sense, then thermistor, then configuration straps, then digital interface.
 
-Use a larger group only when splitting it would hide the conclusion, such as a binary strap table that must be read as a full bit field.
+Use a larger group only when splitting it would hide the conclusion, such as a binary strap table that must be read as a full bit field. If a larger group contains multiple independent user decisions, split it even when the pins have similar names or functions.
 
 - Strap/config pins: analyze all pins in the table together, preserving the data sheet's bit/order convention.
 - Interfaces: group supply, pull-ups, clock/data, alert, enable, and connector pins when they only make sense together.
