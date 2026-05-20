@@ -30,6 +30,7 @@ The skill is designed for circuit-review workflows where an agent should:
 - self-check the focused judgment before answering,
 - compare the actual schematic connection against the data sheet recommendation,
 - call out questionable schematic or PCB-design choices only when there is evidence,
+- explicitly tell the user when the current group or part has been completely analyzed,
 - stop for `Y/N` confirmation before continuing.
 
 For dense power ICs, the default group should be small. For example, a hot-swap controller should be reviewed as separate groups for `VIN/SENSE/OUT/GATE`, `UVLO`, `OVLO`, `TIMER`, `PWR`, and `PGD/status`, instead of one large all-in-one answer.
@@ -117,13 +118,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.10/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.10/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -131,13 +132,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.10/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.9/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.10/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest

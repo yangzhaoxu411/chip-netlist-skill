@@ -40,7 +40,7 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
    - Would the user be able to accept or reject this group without also reviewing a later group?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
 13. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data sheet section, then self-review again.
-14. Present only the current group, then ask for `Y/N` confirmation and stop.
+14. Present only the current group. After the group has project evidence, data sheet/source evidence when applicable, functional/electrical effect, inferred result, abnormal points when present, and self-review result, explicitly tell the user that this group/part has been completely analyzed.
 15. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
 
 Do not analyze the whole chip in one uninterrupted answer when the user requested per-pin or per-group confirmation. For hot-swap, regulators, chargers, BMS, and other dense power ICs, split the chip into micro-groups by default.
@@ -153,6 +153,7 @@ Rules:
 - If a current group needs neighbor context, include only the minimum neighbor evidence needed to support this group's conclusion. Defer the neighbor's own configuration judgment to its later group.
 - After `Y`, `OK`, or "continue", choose the next single group and repeat the same gate.
 - After `N`, revise only the current group. Do not move on until the current group is corrected or explicitly skipped.
+- When the current group is fully analyzed, say that this group/part has been completely analyzed before asking for confirmation.
 
 Before sending the answer, perform an internal self-review against these rules. In the user-facing answer, include only a concise self-review result, not hidden chain-of-thought.
 
@@ -200,6 +201,9 @@ Current focus: <one sentence defining the only pins/nets/parts being judged in t
 
 **Self-review result**
 <One concise sentence confirming the conclusion is limited to this group, explains the function/electrical effect, and is directly supported by the project evidence plus data sheet/source evidence.>
+
+**Completion status**
+<One concise sentence telling the user that this group/part has been completely analyzed.>
 
 Please confirm whether this group is correct: Y/N
 ```

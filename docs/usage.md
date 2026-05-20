@@ -48,7 +48,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.9"
+    "version": "0.1.10"
   }
 }
 ```
@@ -117,7 +117,7 @@ Start by parsing the .epro2 project into AI-ready JSON. Then identify the target
 11. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
 12. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
 13. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
-14. Ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
+14. Tell the user that the current group/part has been completely analyzed, then ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
 
 ## Parser Usage
 
@@ -211,6 +211,7 @@ Each analysis group should include:
 - `inferred result`,
 - `abnormal/questionable points` only if something is suspicious,
 - one concise self-review result,
+- one completion status sentence saying the current group/part has been completely analyzed,
 - a `Y/N` confirmation question when the user requested per-group confirmation.
 
 The agent should not dump the entire chip analysis at once when per-group confirmation was requested. Each reply should contain exactly one group. Do not include multiple `Continue group` sections, multiple independent conclusions, or a table of pending group results in the same reply.
