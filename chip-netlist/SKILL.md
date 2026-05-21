@@ -1,6 +1,6 @@
 ---
 name: chip-netlist
-description: Use when a user uploads, attaches, links, or provides an EasyEDA Pro .epro2 project or chip-netlist generated AI JSON, especially for AI-readable connectivity extraction, automatic data sheet lookup, pin-level chip configuration, schematic review, abnormal connection inspection, or per-group confirmation.
+description: Use when a user uploads, attaches, links, or provides an EasyEDA Pro .epro2 project or chip-netlist generated AI JSON, especially for AI-readable connectivity extraction, automatic data sheet lookup, pin-level chip configuration, schematic defect review, design-intent mismatch, abnormal connection inspection, or per-group confirmation.
 ---
 
 # Chip Netlist
@@ -17,24 +17,37 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
 
 ## Required Loop
 
-1. If the input is an `.epro2` project, parse it with `scripts/parse_tel_netlist.py` before making pin-level claims.
-2. If the input is chip-netlist generated JSON, recognize it by `schema` or `generated_by` and use it directly instead of asking for the original project.
-3. For long analyses or large projects, create or reuse a `.chip-netlist` workbench and generate a focused context packet for the user's requested area before reasoning.
-4. Use the parser JSON or the current context packet as the primary project evidence: component metadata, real part numbers, values, footprints, nets, `Ref.Pin -> net -> peer pins`, no-net pins, and low-connection nets.
-5. If the user names a circuit area, reference designator, net, rail, connector, or function, locate the matching refs/nets in the JSON and expand only the directly relevant peer pins and components before analysis.
-6. If the user did not provide a PDF data sheet, identify relevant active or critical components from the selected context packet and search the web for their data sheets before judging the circuit.
-7. If a PDF data sheet is provided, read enough of it to identify the chip model, package, pinout, pin functions, configuration tables, and typical application circuits.
-8. Before assigning any pin function, build a parser-pin to data-sheet-function mapping using the exact package pinout. Treat `Ref.N` as the project pad/physical package pin identifier from `PAD_NET`, not as schematic-symbol order or the order of functions in a data-sheet table.
-9. Before analyzing, choose exactly one `current_focus_group` for this turn. It must be one pin, one pair, or one indivisible configuration decision. If several groups are available, pick only the highest-priority unresolved group and leave the rest for later turns.
-10. Choose the smallest useful pin or same-function group, such as one supply pair, one sense pair, one threshold divider, one timer pin, one gate-drive path, one interface pair, or one strap/config table.
-11. Re-read the relevant data sheet section and map the project connection states to the documented configuration rules.
-12. Convert the connection into its functional or electrical effect. If an external resistor, capacitor, divider, shunt, strap, pull-up, or pull-down sets a parameter, calculate the resulting current limit, threshold, timing, switching frequency, logic state, gain, or enabled/disabled behavior when the data sheet provides enough information.
-13. Self-review before answering:
+Use this fast evidence pipeline. Do not skip ahead to a conclusion.
+
+1. Recognize the input:
+   - If the input is an `.epro2` project, parse it with `scripts/parse_tel_netlist.py` before making pin-level claims.
+   - If the input is chip-netlist generated JSON, recognize it by `schema` or `generated_by` and use it directly.
+2. Create or reuse the workbench for long analyses, large projects, or repeated turns. Generate a focused `context_packets/<area>.json` for the user's requested area before reasoning.
+3. Build a compact evidence packet from the current context only: target refs, direct peer pins, directly connected nets, component identities, values, footprints, no-net pins, low-connection nets, design-intent facts, and missing values. Do not load the full project unless the packet lacks required evidence.
+4. Create a current-group queue from the evidence packet, then choose exactly one `current_focus_group` for this turn. It must be one pin, one pair, or one indivisible configuration decision. Keep the rest as pending; do not analyze them yet.
+5. Identify the minimum data-sheet facts needed for this one group: exact part number, package, pinout rows, function description, configuration table, formula, threshold, limit, or typical circuit. Search or open only those facts.
+6. Before assigning any pin function, build a parser-pin to data-sheet-function mapping using the exact package pinout. Treat `Ref.N` as the project pad/physical package pin identifier from `PAD_NET`, not as schematic-symbol order or the order of functions in a data-sheet table.
+7. Apply the evidence ladder:
+   - Level 1: parser evidence from `.epro2` or generated JSON.
+   - Level 2: verified data-sheet/product-page evidence for the exact part/package.
+   - Level 3: circuit-role deduction from nets shared with known IC pins.
+   - Level 4: engineering judgment or typical practice.
+   Use Level 4 only as context, never as proof.
+8. Convert the connection into its functional or electrical effect. If an external resistor, capacitor, divider, shunt, strap, pull-up, or pull-down sets a parameter, calculate the resulting current limit, threshold, timing, switching frequency, logic state, gain, or enabled/disabled behavior when the data sheet provides enough information.
+9. Run the defect review gate: compare expected behavior from data sheet and user design intent against the actual schematic evidence. If there is a mismatch, classify the risk and give Expected / Actual / Impact / Fix.
+10. Assign a confidence level to each conclusion:
+   - `confirmed`: parser evidence and exact data-sheet evidence agree.
+   - `likely`: evidence strongly supports the conclusion but one non-critical detail is missing.
+   - `unknown`: required pinout, value, formula, or part identity is missing.
+   - `suspicious`: evidence conflicts with the data sheet, intended role, or typical safe connection.
+11. Self-review before answering:
    - Did the parser evidence match the project records?
-   - Did the component identity come from real `.epro2` attributes such as `Manufacturer Part`, `Value`, or `partId`?
+   - Did the component identity come from real `.epro2` attributes such as `Manufacturer Part`, `Value`, `partId`, or supplier code?
    - If data sheets were found online, are the source URLs recorded and does the part number/package/function match the project component?
+   - Did the answer compare actual schematic behavior against data-sheet expectation and known user design intent?
+   - If a defect is present, did the answer include Expected / Actual / Impact / Fix and a risk level?
    - Did the answer verify `Ref.N` against the exact package pinout instead of schematic symbol order?
-   - Did the data sheet table use the correct pin order?
+   - Did the data-sheet table use the correct pin order and package?
    - Is the conclusion directly supported, or is it only a hypothesis?
    - Did the answer explain what the connection does, not only how it is connected?
    - If a value-setting component is present, did the answer calculate the resulting parameter with formula, units, and assumptions, or clearly state what missing data prevents calculation?
@@ -42,9 +55,9 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
    - Did this answer stay inside exactly one confirmation group?
    - Would the user be able to accept or reject this group without also reviewing a later group?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
-14. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data sheet section, then self-review again.
-15. Present only the current group. After the group has project evidence, data sheet/source evidence when applicable, functional/electrical effect, inferred result, abnormal points when present, and self-review result, explicitly tell the user that this group/part has been completely analyzed.
-16. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
+12. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data-sheet section, then self-review again.
+13. Present only the current group. After the group has evidence packet summary, pin mapping evidence, project evidence, data sheet/source evidence when applicable, functional/electrical effect, inferred result, confidence, defect review, and self-review result, explicitly tell the user that this group/part has been completely analyzed.
+14. Continue to the next group only after `Y`, `OK`, or an explicit continue request. If the user replies `N`, correct only the current group before moving on.
 
 Do not analyze the whole chip in one uninterrupted answer when the user requested per-pin or per-group confirmation. For hot-swap, regulators, chargers, BMS, and other dense power ICs, split the chip into micro-groups by default.
 
@@ -108,6 +121,7 @@ The workbench contains:
 - `datasheet_sources.json`: verified data-sheet URLs and local paths, filled as sources are found.
 - `datasheet_facts/`: extracted pin tables, formulas, limits, and application facts.
 - `datasheets/`: cached PDFs when the agent downloads or receives them.
+- `design_intent.json`: optional user goals such as input voltage, output voltage/current, battery cell count, logic level, communication interface, current limit, and enabled features.
 - `analysis_state.json`: confirmed/pending/rejected pin groups and current context.
 - `analysis_report.md`: human-readable confirmed findings.
 
@@ -129,6 +143,93 @@ When the user provides a JSON file, inspect the top-level fields before asking f
 Use `components`, `nets`, `pins`, `ref_report`, `warnings`, and `datasheet_lookup` directly. Do not require the `.epro2` project unless the JSON is missing the circuit area the user wants to analyze or appears incomplete.
 
 If the JSON has `schema: "chip-netlist-context-packet-v1"`, treat it as a compact packet for the selected circuit area. Use it first, then consult the workbench files only if necessary.
+
+## Evidence Packet and Group Queue
+
+Before analysis, reduce the project to a small evidence packet for the requested area. This improves accuracy and keeps context small.
+
+Evidence packet contents:
+
+- Target components and directly connected neighbor components.
+- Direct nets and `Ref.Pin -> net -> peer pins` rows for the current area.
+- Component identity fields: `manufacturer_part`, `canonical_name`, `supplier_part`, `value`, `footprint`, and source object IDs when present.
+- Known user design intent, such as input/output voltage, current limit, battery cell count, logic level, interface, load current, required protections, or enabled/disabled features.
+- No-net, low-connection, and missing-value warnings that affect only this area.
+- Local data-sheet cache entries and previously extracted `datasheet_facts` for the selected parts.
+
+Group queue rules:
+
+- Build a pending queue of small groups from the evidence packet: supply, ground, sense pair, gate-drive path, threshold divider, timing part, strap table, interface, status pin, or one peer component role.
+- Pick the highest-risk unresolved group first: power path, current limit, sense pins, gate drive, enable/UV/OV thresholds, cell stack, then status/interface pins.
+- A group may include neighbor parts only when they are needed to explain the current group's function, such as a sense resistor with sense pins or a pass MOSFET with a hot-swap gate pin.
+- Do not output the whole queue unless the user asks for a roadmap. If a roadmap is requested, list names only and still analyze one group.
+- Persist confirmed/rejected groups in `analysis_state.json` when using a workbench.
+
+## Evidence Ladder and Confidence
+
+Use stronger evidence before weaker evidence:
+
+1. Parser evidence from `.epro2`, generated JSON, or context packet.
+2. Exact data-sheet or product-page evidence for the same part number and package.
+3. Circuit-role deduction from known IC pins and shared nets.
+4. Engineering judgment, typical applications, or common package habits.
+
+Rules:
+
+- Levels 1-3 can support a conclusion. Level 4 can only explain context or suggest what to check.
+- Do not allow Level 4 to override missing or conflicting Level 1-3 evidence.
+- Mark every inferred result as `confirmed`, `likely`, `unknown`, or `suspicious`.
+- If a conclusion is `unknown` or `suspicious`, tell the user exactly which evidence would resolve it.
+- Prefer saying "not determined" over inventing a pin role, configuration, or parameter.
+
+## Design Intent Gate
+
+The user mainly uses this skill to find schematic design defects. Whenever design intent is known, compare the schematic against it. If intent is missing, infer only low-risk facts from context and ask for the minimum missing intent when it changes the judgment.
+
+Common design-intent facts:
+
+- Input supply range, nominal voltage, maximum transient voltage, and reverse-protection requirement.
+- Output voltage, output current, load type, and required current limit.
+- Battery cell count, chemistry, charge current, MPPT or power-path expectation.
+- Logic voltage for I2C, SMBus, UART, GPIO, enable pins, reset pins, and status pins.
+- Required enabled/disabled functions, address straps, mode straps, switching frequency, soft-start, retry, or fault behavior.
+- Whether the board is a prototype, competition design, production design, or bring-up/debug version.
+
+Rules:
+
+- If the user already stated intent in the conversation, reuse it and, when using a workbench, record it in `design_intent.json`.
+- If intent is missing but the data-sheet rule is absolute, such as "must connect", "do not float", "absolute maximum", or "required capacitor", call out the issue without waiting for intent.
+- If intent is needed to decide whether a value is right, report the calculated actual value and ask for the target value.
+- Do not assume the intended battery cell count, logic voltage, current limit, or output voltage from net names alone. Treat net names as hints, not proof.
+
+## Defect Review Gate
+
+Every group must include a schematic-defect review, even when no defect is found. The goal is to help the user decide whether the schematic should be changed.
+
+Risk levels:
+
+- `must-fix`: strong evidence of possible damage, unsafe operation, invalid data-sheet connection, impossible function, or a setting that contradicts stated design intent.
+- `high`: likely functional failure, unreliable protection, wrong threshold/current/timing, missing required bias, or serious margin concern.
+- `medium`: works in principle but has weak margin, unusual value, missing recommended component, unclear tolerance impact, or needs engineering review before PCB.
+- `low`: minor cleanup, documentation/BOM ambiguity, optional recommendation, or bring-up note.
+- `info`: no defect found in this group, or the group only extracts connectivity.
+- `unknown`: cannot judge because exact intent, value, data sheet, package, or formula is missing.
+
+Defect categories to check:
+
+- Pin state: required pin floating, no-connect pin tied, reserved pin used, strap combination invalid, enable/reset/boot/status pin biased incorrectly.
+- Electrical value: threshold, current limit, timing, frequency, gain, pullup strength, divider ratio, or compensation value differs from target or data-sheet guidance.
+- Power and protection: reverse polarity, TVS/diode direction, fuse/current path, hot-swap MOSFET role, sense resistor location, gate-drive path, or voltage rating mismatch.
+- Interfaces: missing pullups, wrong pullup rail, logic-level mismatch, open-drain misuse, address collision, missing series/termination/filter where required.
+- Supplies and grounding: missing or odd bypass capacitor, analog/power ground ambiguity, exposed pad or thermal pad handling, internal regulator capacitor issue.
+- Identity and package: component has no real part/value, package pinout mismatch, data sheet does not match the selected part, or parser pin count is incomplete.
+
+Defect output rule:
+
+- If a risk exists, write `Expected / Actual / Impact / Fix`.
+- If no risk exists, explicitly say `No defect found in this group based on the available evidence`.
+- If the risk depends on missing intent or missing data, use risk `unknown` and state the exact missing evidence.
+- Do not overstate layout-dependent issues from schematic evidence alone. Use wording like "review before PCB" unless the data sheet gives an explicit rule.
 
 ## Automatic Data Sheet Lookup
 
@@ -157,6 +258,18 @@ When the user asks to analyze a circuit area and no data sheet was provided:
 9. If no reliable data sheet can be found, say so explicitly and limit conclusions to project connectivity evidence.
 
 Never load a batch of unrelated data sheets. Load or search only the data sheets needed for the current context packet.
+
+## Missing Evidence Protocol
+
+When required evidence is missing, follow this order before asking the user:
+
+1. Search the current context packet, full `chip_netlist.json`, `component_index.json`, and `.epro2` attributes for the missing part number, value, footprint, supplier code, or data-sheet URL.
+2. Search directly connected peer components for the missing value when the function depends on a divider, shunt, timing part, compensation part, or pullup/pulldown.
+3. Check `datasheet_sources.json`, `datasheet_facts/`, and cached PDFs before doing a new web search.
+4. Use web lookup and retrieval fallbacks only for the part(s) needed by the current group.
+5. If still missing, keep the group result as `unknown` or `likely`, identify the missing item, and ask the user for exactly that item.
+
+Do not proceed from missing evidence to a confident conclusion. Do not widen the analysis to unrelated circuit areas just to avoid asking for missing data.
 
 ## Data Sheet Retrieval Fallbacks
 
@@ -206,6 +319,7 @@ Connectivity evidence is necessary but not sufficient for circuit analysis. Afte
 Rules:
 
 - Do not stop at "R/C/shunt/divider is connected here" when that component configures a chip behavior.
+- First classify the component's role in this group: set resistor, sense resistor, divider, filter, bypass, timing, compensation, strap, pullup/pulldown, load, protection, or unknown.
 - If the data sheet gives a formula, threshold, typical value, or table, calculate the configured result using the project component values. Include units.
 - If the data sheet gives min/typ/max thresholds and the calculation affects safety or design margin, compute or at least mention the resulting range.
 - If a value is missing from the `.epro2` evidence, search nearby attributes and peer components first. If it is still missing, state that the parameter cannot be calculated and identify the missing value.
@@ -245,6 +359,9 @@ Continue group N: **<functional group name>**
 
 Current focus: <one sentence defining the only pins/nets/parts being judged in this reply.>
 
+**Evidence packet**
+<Briefly name the target part(s), directly involved nets, and critical values or missing values used for this group. Do not list unrelated queue items.>
+
 **Pin mapping evidence**
 <Show `Parser Pin -> Physical Package Pin/Pad -> Data-sheet Function -> Net/Connection Status` rows for the current group. Before the first functional conclusion for a target IC, build the full mapping or state where it is stored.>
 
@@ -258,13 +375,16 @@ Current focus: <one sentence defining the only pins/nets/parts being judged in t
 <Explain what this connection makes the circuit do. Include formula and numeric calculation with units when component values and data sheet rules make that possible. If a numeric result cannot be calculated, state exactly what is missing.>
 
 **Inferred result**
-<The actual configured function/parameter and its practical meaning, or the extracted connectivity result when the task is pure connectivity extraction. State confidence when needed.>
+<The actual configured function/parameter and its practical meaning, or the extracted connectivity result when the task is pure connectivity extraction. Include confidence: confirmed / likely / unknown / suspicious.>
 
-**Abnormal or questionable points**
-<Only include this section when something is actually suspicious.>
+**Missing evidence**
+<Include only when confidence is not confirmed. State the exact missing value, pinout, formula, package, or data sheet needed to resolve it.>
+
+**Defect review**
+<Always include. If no issue is found, say "No defect found in this group based on the available evidence." If a risk exists, include risk level, category, Expected, Actual, Impact, and Fix.>
 
 **Self-review result**
-<One concise sentence confirming the conclusion is limited to this group, explains the function/electrical effect, and is directly supported by the project evidence plus data sheet/source evidence.>
+<One concise sentence confirming the conclusion is limited to this group, explains the function/electrical effect, checks design defect risk, and is directly supported by the project evidence plus data sheet/source evidence.>
 
 **Completion status**
 <One concise sentence telling the user that this group/part has been completely analyzed.>
@@ -272,7 +392,8 @@ Current focus: <one sentence defining the only pins/nets/parts being judged in t
 Please confirm whether this group is correct: Y/N
 ```
 
-If there is no abnormal point, omit the `Abnormal or questionable points` section entirely.
+Always include the `Defect review` section. It may say no defect was found.
+If confidence is `confirmed`, omit the `Missing evidence` section entirely.
 
 ## Grouping Guidance
 

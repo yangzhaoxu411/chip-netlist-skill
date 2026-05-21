@@ -23,12 +23,19 @@ The skill is designed for circuit-review workflows where an agent should:
 
 - read the chip data sheet,
 - parse the `.epro2` project into AI-ready JSON,
+- reduce the selected circuit area into a compact evidence packet before reasoning,
+- build a pending group queue and choose the highest-risk unresolved group first,
 - inspect exactly one small pin group or one functional decision per reply,
+- use an evidence ladder: parser evidence, exact data-sheet evidence, circuit-role deduction, and engineering judgment only as context,
+- compare actual schematic behavior against data-sheet expectations and known user design intent,
 - infer the configured function or parameter,
 - explain what the connection makes the circuit do, not only how it is connected,
 - calculate resulting values such as current limits, thresholds, timing, frequency, or logic state when data sheet formulas and project values are available,
 - map parser pins to physical package pins and data-sheet functions before assigning pin functions,
 - deduce peer component pin functions from controlling-IC data sheets and parser net evidence instead of package pin-number habits,
+- mark conclusions as confirmed, likely, unknown, or suspicious,
+- classify schematic defect risk as must-fix, high, medium, low, info, or unknown,
+- explain defects with Expected / Actual / Impact / Fix,
 - self-check the focused judgment before answering,
 - compare the actual schematic connection against the data sheet recommendation,
 - call out questionable schematic or PCB-design choices only when there is evidence,
@@ -89,11 +96,40 @@ The workbench stores:
 - `context_packets/<area>.json`: small AI-loadable circuit slices,
 - `datasheet_sources.json`: verified data-sheet URLs and local PDF paths,
 - `datasheet_facts/`: extracted pinouts, formulas, limits, and application notes,
+- `design_intent.json`: optional user goals such as input range, output/current target, battery cell count, logic level, current limit, and enabled features,
 - `analysis_state.json`: confirmed/pending/rejected groups,
 - `analysis_report.md`: human-readable review notes.
 
 This lets Codex, Claude Code, or OpenCode resume after long conversations, reload only the current circuit area, and avoid confusing unrelated component data sheets.
 Context packets mark data-sheet targets as `primary` or `neighbor`, so the agent searches the selected chip first and only checks neighboring parts when their limits or formulas matter.
+
+## Evidence Pipeline
+
+The analysis workflow is intentionally staged:
+
+1. Build a compact evidence packet for the requested area.
+2. Choose one small current group from the pending queue.
+3. Verify parser pin numbers against the exact package pinout.
+4. Extract only the data-sheet facts needed for that group.
+5. Deduce circuit role from shared nets and known IC pins.
+6. Calculate configured values when formulas and component values are available.
+7. Compare Expected vs Actual against the data sheet and known design intent.
+8. Classify defect risk as `must-fix`, `high`, `medium`, `low`, `info`, or `unknown`.
+9. Mark the result as `confirmed`, `likely`, `unknown`, or `suspicious`.
+10. Ask for `Y/N` before continuing.
+
+This keeps long analyses focused and reduces mistakes from context overload, generic package assumptions, or unverified pin-number mappings.
+
+## Defect Review Mode
+
+When the user's goal is schematic review, each group includes a defect review:
+
+- Expected: data-sheet requirement, recommended circuit, or user design target.
+- Actual: schematic connection and calculated value from `.epro2` evidence.
+- Impact: likely board behavior, failure mode, margin issue, or bring-up risk.
+- Fix: suggested schematic change or exact confirmation needed.
+
+Risk levels are `must-fix`, `high`, `medium`, `low`, `info`, and `unknown`. If no issue is found, the group should explicitly say that no defect was found based on the available evidence.
 
 ## Repository Layout
 
@@ -121,13 +157,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -135,13 +171,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest
@@ -229,7 +265,7 @@ Use $chip-netlist to analyze:
 Data sheet: C:\path\to\chip.pdf
 Project: C:\path\to\board.epro2
 
-Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. In each reply, focus on exactly one small group, self-check the judgment before answering, show pin mapping evidence, project evidence, data sheet evidence, functional/electrical effect, inferred result, and questionable points only when present. Treat parser pins such as U1.1 as project pad/physical package pin identifiers, not schematic-symbol order; map them to the exact data-sheet package pinout before assigning functions. Do not stop at connectivity; when a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when possible. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before continuing.
+Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group and review schematic defects. First build a compact evidence packet for the requested area, then choose exactly one small current group from the pending queue. In each reply, self-check the judgment before answering, show evidence packet summary, pin mapping evidence, project evidence, data sheet evidence, functional/electrical effect, inferred result with confidence, and defect review. Treat parser pins such as U1.1 as project pad/physical package pin identifiers, not schematic-symbol order; map them to the exact data-sheet package pinout before assigning functions. Do not stop at connectivity; when a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when possible. For defect review, compare Expected vs Actual, explain Impact, suggest Fix, and classify risk as must-fix/high/medium/low/info/unknown. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Mark conclusions as confirmed, likely, unknown, or suspicious. Wait for my Y/N confirmation before continuing.
 ```
 
 If the agent supports implicit skills, providing an EasyEDA Pro `.epro2` project should be enough to trigger this skill. A PDF data sheet is optional for connectivity extraction and required for data-sheet-based chip configuration judgment.

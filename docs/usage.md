@@ -10,6 +10,8 @@ Use `chip-netlist` when you have:
 
 This skill is for pin-level chip-configuration reverse engineering and schematic review. The parser reads the `.epro2` project directly and emits structured JSON containing component identities, real part numbers, values, nets, pin connectivity, peer pins, no-net pins, and review warnings. If a data sheet is also available, the agent can compare project evidence against the documented pin functions and typical circuits.
 
+The main user-facing goal is schematic defect review: identify whether the actual schematic could cause a board to fail, behave differently from the design intent, use unsafe thresholds, omit required biasing or protection, or need confirmation before PCB production or bring-up.
+
 The generated JSON is intended to be re-uploaded and recognized later. If a file contains `schema: "chip-netlist-ai-json-v1"` or `generated_by.tool: "chip-netlist"`, the agent should treat it as already-parsed project evidence and can analyze circuit sections from it without needing the original `.epro2`.
 
 For large projects, use the persistent workbench workflow. The full project is stored on disk, while the agent loads only a small context packet for the current circuit area. This reduces context loss and avoids mixing unrelated data sheets.
@@ -48,7 +50,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.13"
+    "version": "0.1.14"
   }
 }
 ```
@@ -99,7 +101,7 @@ Use $chip-netlist to analyze:
 Data sheet: /path/to/chip.pdf
 Project: /path/to/board.epro2
 
-Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one small functional pin group at a time. Before assigning any pin function, map parser pins such as U1.1 to the exact physical package pinout and data-sheet function; do not treat parser pin numbers as schematic-symbol order. In each reply, focus on exactly one current group, self-check your judgment before answering, show pin mapping evidence, .epro2 project evidence, data sheet evidence, the functional/electrical effect of the connection, inferred result, and questionable points only when present. When a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when the data sheet provides enough information. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before moving to the next group.
+Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one small functional pin group at a time. Before assigning any pin function, map parser pins such as U1.1 to the exact physical package pinout and data-sheet function; do not treat parser pin numbers as schematic-symbol order. In each reply, focus on exactly one current group, self-check your judgment before answering, show evidence packet summary, pin mapping evidence, .epro2 project evidence, data sheet evidence, the functional/electrical effect of the connection, inferred result with confidence, and defect review. When a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when the data sheet provides enough information. For defect review, compare Expected vs Actual, explain Impact, suggest Fix, and assign risk as must-fix/high/medium/low/info/unknown. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before moving to the next group.
 ```
 
 ## Expected Workflow
@@ -108,18 +110,22 @@ Start by parsing the .epro2 project into AI-ready JSON. Then identify the target
 2. If the input is already chip-netlist generated JSON, skip parsing and use it directly.
 3. For long sessions or large projects, create `.chip-netlist` with `--workdir`.
 4. If the user names a circuit area, generate or load `context_packets/<area>.json`.
-5. Use the context packet as the source of truth for the current `Ref.Pin -> net -> peer pins` evidence.
-6. If a PDF is provided, read only the relevant pin table, configuration table, formulas, limits, and typical circuits.
-7. If no PDF is provided, use `datasheet_lookup.targets` in the context packet to search for data sheets online.
-8. Store verified source URLs in `datasheet_sources.json` and extracted facts in `datasheet_facts/`.
-9. Build a parser-pin to data-sheet-function mapping table from the exact package pinout before assigning functions. Treat `Ref.N` as a project pad/physical package pin identifier, not schematic-symbol order.
-10. Pick exactly one smallest useful functional pin group for the current reply, such as one supply path, one sense pair, one threshold divider, one timer pin, one gate-drive path, or one strap/config table.
-11. Infer the configured function or parameter. Do not stop at connectivity; explain what the connection makes the circuit do.
-12. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
-13. When naming peer component pin functions, deduce those functions from the controlling IC data sheet plus parser net evidence. Do not assume MOSFET source/drain/gate or connector/module pin roles from numbering conventions alone.
-14. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
-15. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
-16. Tell the user that the current group/part has been completely analyzed, then ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
+5. Build a compact evidence packet for the requested area: target refs, direct nets, peer pins, critical values, missing values, no-net pins, and local data-sheet cache entries.
+6. Create a pending group queue from that packet, then pick exactly one smallest useful functional group for the current reply.
+7. If a PDF is provided, read only the relevant pin table, configuration table, formulas, limits, and typical circuits for this one group.
+8. If no PDF is provided, use `datasheet_lookup.targets` in the context packet to search only the data sheets needed for this one group.
+9. Store verified source URLs in `datasheet_sources.json` and extracted facts in `datasheet_facts/`.
+10. Build a parser-pin to data-sheet-function mapping table from the exact package pinout before assigning functions. Treat `Ref.N` as a project pad/physical package pin identifier, not schematic-symbol order.
+11. Apply the evidence ladder: parser evidence, exact data-sheet evidence, circuit-role deduction, then engineering judgment only as context.
+12. Infer the configured function or parameter. Do not stop at connectivity; explain what the connection makes the circuit do.
+13. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
+14. Compare actual schematic behavior against data-sheet expectations and known user design intent.
+15. If a defect risk exists, classify it and write Expected / Actual / Impact / Fix.
+16. Assign confidence to the result: `confirmed`, `likely`, `unknown`, or `suspicious`.
+17. When naming peer component pin functions, deduce those functions from the controlling IC data sheet plus parser net evidence. Do not assume MOSFET source/drain/gate or connector/module pin roles from numbering conventions alone.
+18. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
+19. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
+20. Tell the user that the current group/part has been completely analyzed, then ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
 
 ## Parser Usage
 
@@ -177,10 +183,24 @@ The `--workdir` option creates these files:
 - `datasheet_sources.json`: verified data-sheet URLs and local cached PDF paths.
 - `datasheet_facts/`: extracted facts such as pinout tables, formulas, thresholds, absolute maximum limits, and recommended application values.
 - `datasheets/`: downloaded or user-provided PDFs.
+- `design_intent.json`: optional user goals such as input range, output voltage/current, battery cell count, logic level, interface, current limit, and required protections.
 - `analysis_state.json`: confirmed, pending, and rejected groups plus current context.
 - `analysis_report.md`: human-readable review notes.
 
 State and report files are created only if missing, so user notes and confirmed analysis are not overwritten by rerunning the parser.
+
+## Evidence Packet and Group Queue
+
+For efficient analysis, reduce the selected circuit area before reasoning:
+
+- load `context_packets/<area>.json` first,
+- include only target refs, direct nets, peer pins, critical component values, no-net pins, low-connection warnings, and local data-sheet cache entries,
+- include known design intent for the selected area, such as target voltage/current, battery cell count, logic level, enabled features, or protection goal,
+- create a pending queue of small groups such as supply, ground, sense pair, gate-drive path, threshold divider, timing part, strap table, interface, status pin, or one peer component role,
+- choose the highest-risk unresolved group first, usually power path, current limit, sense pins, gate drive, enable/UV/OV thresholds, cell stack, then status/interface pins,
+- keep the rest of the queue pending and do not analyze it until the user confirms the current group.
+
+If the user asks for a roadmap, list group names only. Still analyze exactly one group in the current reply.
 
 ## Automatic Data Sheet Lookup
 
@@ -204,6 +224,55 @@ When the user asks to analyze a circuit section and no data sheet is supplied, t
 - If no reliable data sheet is found, say so and limit the conclusion to project connectivity evidence.
 
 Do not load a large batch of unrelated PDFs. Load or search only the data sheets needed for the current context packet.
+
+## Evidence Ladder and Missing Evidence
+
+Use stronger evidence before weaker evidence:
+
+1. Parser evidence from `.epro2`, generated JSON, or a context packet.
+2. Exact data-sheet or product-page evidence for the same part number and package.
+3. Circuit-role deduction from known IC pins and shared nets.
+4. Engineering judgment, typical applications, or package habits.
+
+Levels 1-3 can support conclusions. Level 4 can only explain context or suggest what to check.
+
+If required evidence is missing:
+
+- search the context packet, full `chip_netlist.json`, `component_index.json`, and `.epro2` attributes,
+- search directly connected peer components for missing divider, shunt, timing, compensation, or pullup/pulldown values,
+- check `datasheet_sources.json`, `datasheet_facts/`, and cached PDFs,
+- then search the web only for the current group's needed part,
+- if still missing, mark the conclusion `unknown` or `likely` and state exactly what value, pinout, package, formula, or data sheet is missing.
+
+## Design Intent and Defect Review
+
+When the user wants to find schematic design defects, compare each group against both the data sheet and the user's design intent.
+
+Common design-intent facts:
+
+- input voltage range, maximum transient voltage, reverse-protection need,
+- output voltage/current, load type, current-limit target,
+- battery cell count, charge current, chemistry, MPPT or power-path goal,
+- I2C/SMBus/UART/GPIO logic voltage and pullup rail,
+- required enabled/disabled features, address straps, switching frequency, soft-start, retry, and fault behavior.
+
+If intent is unknown, do not guess it from net names alone. Calculate the actual value and ask for the target only when it changes whether the group is a defect.
+
+Risk levels:
+
+- `must-fix`: possible damage, unsafe operation, invalid data-sheet connection, impossible function, or direct contradiction with stated intent,
+- `high`: likely functional failure, unreliable protection, wrong threshold/current/timing, missing required bias, or serious margin concern,
+- `medium`: works in principle but has weak margin, unusual value, missing recommended component, unclear tolerance impact, or needs engineering review,
+- `low`: minor cleanup, documentation/BOM ambiguity, optional recommendation, or bring-up note,
+- `info`: no defect found or pure connectivity extraction,
+- `unknown`: cannot judge because intent, value, pinout, formula, package, or data sheet is missing.
+
+For each risk, use:
+
+- Expected: data-sheet requirement, recommended circuit, or user target,
+- Actual: schematic evidence and calculated value,
+- Impact: practical failure mode or design consequence,
+- Fix: suggested schematic change or exact confirmation needed.
 
 ## Pin Numbering Convention
 
@@ -233,12 +302,14 @@ For example, if a hot-swap controller data sheet says `OUT` connects to the MOSF
 Each analysis group should include:
 
 - one explicit current focus group,
+- a compact evidence packet summary,
 - pin mapping evidence for the current group, and a full mapping before the first functional conclusion when pin numbering could be ambiguous,
 - `.epro2 project evidence`,
 - `data sheet evidence` when a PDF was provided or found online,
 - `functional/electrical effect`, including formulas and numeric results when possible,
-- `inferred result`,
-- `abnormal/questionable points` only if something is suspicious,
+- `inferred result` with confidence: `confirmed`, `likely`, `unknown`, or `suspicious`,
+- `missing evidence` only when confidence is not confirmed,
+- `defect review` always, with risk level and Expected / Actual / Impact / Fix when a risk exists,
 - one concise self-review result,
 - one completion status sentence saying the current group/part has been completely analyzed,
 - a `Y/N` confirmation question when the user requested per-group confirmation.
