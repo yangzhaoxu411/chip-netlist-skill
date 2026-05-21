@@ -24,14 +24,16 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
 5. If the user names a circuit area, reference designator, net, rail, connector, or function, locate the matching refs/nets in the JSON and expand only the directly relevant peer pins and components before analysis.
 6. If the user did not provide a PDF data sheet, identify relevant active or critical components from the selected context packet and search the web for their data sheets before judging the circuit.
 7. If a PDF data sheet is provided, read enough of it to identify the chip model, package, pinout, pin functions, configuration tables, and typical application circuits.
-8. Before analyzing, choose exactly one `current_focus_group` for this turn. It must be one pin, one pair, or one indivisible configuration decision. If several groups are available, pick only the highest-priority unresolved group and leave the rest for later turns.
-9. Choose the smallest useful pin or same-function group, such as one supply pair, one sense pair, one threshold divider, one timer pin, one gate-drive path, one interface pair, or one strap/config table.
-10. Re-read the relevant data sheet section and map the project connection states to the documented configuration rules.
-11. Convert the connection into its functional or electrical effect. If an external resistor, capacitor, divider, shunt, strap, pull-up, or pull-down sets a parameter, calculate the resulting current limit, threshold, timing, switching frequency, logic state, gain, or enabled/disabled behavior when the data sheet provides enough information.
-12. Self-review before answering:
+8. Before assigning any pin function, build a parser-pin to data-sheet-function mapping using the exact package pinout. Treat `Ref.N` as the project pad/physical package pin identifier from `PAD_NET`, not as schematic-symbol order or the order of functions in a data-sheet table.
+9. Before analyzing, choose exactly one `current_focus_group` for this turn. It must be one pin, one pair, or one indivisible configuration decision. If several groups are available, pick only the highest-priority unresolved group and leave the rest for later turns.
+10. Choose the smallest useful pin or same-function group, such as one supply pair, one sense pair, one threshold divider, one timer pin, one gate-drive path, one interface pair, or one strap/config table.
+11. Re-read the relevant data sheet section and map the project connection states to the documented configuration rules.
+12. Convert the connection into its functional or electrical effect. If an external resistor, capacitor, divider, shunt, strap, pull-up, or pull-down sets a parameter, calculate the resulting current limit, threshold, timing, switching frequency, logic state, gain, or enabled/disabled behavior when the data sheet provides enough information.
+13. Self-review before answering:
    - Did the parser evidence match the project records?
    - Did the component identity come from real `.epro2` attributes such as `Manufacturer Part`, `Value`, or `partId`?
    - If data sheets were found online, are the source URLs recorded and does the part number/package/function match the project component?
+   - Did the answer verify `Ref.N` against the exact package pinout instead of schematic symbol order?
    - Did the data sheet table use the correct pin order?
    - Is the conclusion directly supported, or is it only a hypothesis?
    - Did the answer explain what the connection does, not only how it is connected?
@@ -40,9 +42,9 @@ If the user provides an `.epro2` project file or a JSON file containing `schema:
    - Did this answer stay inside exactly one confirmation group?
    - Would the user be able to accept or reject this group without also reviewing a later group?
    - Is there any abnormal, risky, missing, or non-typical connection worth calling out?
-13. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data sheet section, then self-review again.
-14. Present only the current group. After the group has project evidence, data sheet/source evidence when applicable, functional/electrical effect, inferred result, abnormal points when present, and self-review result, explicitly tell the user that this group/part has been completely analyzed.
-15. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
+14. If the self-review fails, do not answer yet. Shrink the group, gather missing evidence, or re-read the correct data sheet section, then self-review again.
+15. Present only the current group. After the group has project evidence, data sheet/source evidence when applicable, functional/electrical effect, inferred result, abnormal points when present, and self-review result, explicitly tell the user that this group/part has been completely analyzed.
+16. Continue to the next group only after `Y`. If the user replies `N`, correct the current group before moving on.
 
 Do not analyze the whole chip in one uninterrupted answer when the user requested per-pin or per-group confirmation. For hot-swap, regulators, chargers, BMS, and other dense power ICs, split the chip into micro-groups by default.
 
@@ -68,6 +70,21 @@ The parser extracts:
 - No-net pins, single-point nets, low-connection nets, and components without clear canonical names.
 
 Parser warnings are clues, not final findings. Confirm each warning against the data sheet or design intent before telling the user it is unreasonable.
+
+## Pin Numbering Convention Gate
+
+Parser pins such as `U1.1` are project pad identifiers from `.epro2` `PAD_NET` records. Numeric suffixes usually correspond to physical package pins or footprint pads, not schematic-symbol drawing order, not the first logical function shown in the schematic symbol, and not necessarily the first row in a data-sheet table.
+
+Rules:
+
+- Never assume `U1.1` means "symbol pin 1", "the first function listed", or "the first pin in a same-function group".
+- Always verify the parser pin number against the exact data-sheet package pinout before assigning a function. Package matters: QFN, TSSOP, SOP, BGA, modules, and alternate packages can use different physical pin maps.
+- Before the first functional conclusion for a target IC, build a `Parser Pin -> Physical Package Pin/Pad -> Data-sheet Function -> Net/Connection Status` mapping table. This table is evidence, not a multi-group analysis, so it may be shown before the first group without violating the single-group confirmation rule.
+- For large ICs, save the full mapping in the workbench or notes and show at least the rows used by the current group. If the user's error risk is pin numbering or cell-stack/config pins, show the full compact mapping before drawing conclusions.
+- If the data sheet says `Pin 38 = CELLS0`, then only parser evidence for `U1.38` can prove the CELLS0 connection. Do not transfer the connection from `U1.1`, adjacent pins, or symbol order.
+- If an expected physical pin number is absent from `ref_report.pins`, `pins`, and `observed_pins`, report it as not observed/unconnected in parser evidence unless raw project records prove otherwise.
+- If a parser row exists with `connected: false` or appears in `warnings.no_net_pins`, treat that pin as floating/unconnected for analysis until contrary project evidence is found.
+- If data-sheet package pinout cannot be verified, pause detailed pin-function inference and ask for the correct package data sheet, pinout screenshot, or user confirmation.
 
 ## Memory-Safe Workbench
 
@@ -227,6 +244,9 @@ For each group, use this structure, translated into the user's language:
 Continue group N: **<functional group name>**
 
 Current focus: <one sentence defining the only pins/nets/parts being judged in this reply.>
+
+**Pin mapping evidence**
+<Show `Parser Pin -> Physical Package Pin/Pad -> Data-sheet Function -> Net/Connection Status` rows for the current group. Before the first functional conclusion for a target IC, build the full mapping or state where it is stored.>
 
 **.epro2 project evidence**
 <Component identity plus Pin -> net -> peer connections. Include no-net evidence when relevant.>

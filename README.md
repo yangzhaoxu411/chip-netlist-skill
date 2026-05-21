@@ -27,6 +27,7 @@ The skill is designed for circuit-review workflows where an agent should:
 - infer the configured function or parameter,
 - explain what the connection makes the circuit do, not only how it is connected,
 - calculate resulting values such as current limits, thresholds, timing, frequency, or logic state when data sheet formulas and project values are available,
+- map parser pins to physical package pins and data-sheet functions before assigning pin functions,
 - deduce peer component pin functions from controlling-IC data sheets and parser net evidence instead of package pin-number habits,
 - self-check the focused judgment before answering,
 - compare the actual schematic connection against the data sheet recommendation,
@@ -120,13 +121,13 @@ These commands install from `yangzhaoxu411/chip-netlist-skill`.
 Install for Codex:
 
 ```powershell
-$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.12/install.ps1 | iex
+$env:TARGET="codex"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.ps1 | iex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```powershell
-$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.12/install.ps1 | iex
+$env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.ps1 | iex
 ```
 
 ### macOS / Linux / Git Bash
@@ -134,13 +135,13 @@ $env:TARGET="all"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netl
 Install for Codex:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.12/install.sh | bash -s -- --target codex
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.sh | bash -s -- --target codex
 ```
 
 Install for Codex, Claude Code, and OpenCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.12/install.sh | bash -s -- --target all
+curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.13/install.sh | bash -s -- --target all
 ```
 
 ## Update to Latest
@@ -228,7 +229,7 @@ Use $chip-netlist to analyze:
 Data sheet: C:\path\to\chip.pdf
 Project: C:\path\to\board.epro2
 
-Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. In each reply, focus on exactly one small group, self-check the judgment before answering, show project evidence, data sheet evidence, functional/electrical effect, inferred result, and questionable points only when present. Do not stop at connectivity; when a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when possible. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before continuing.
+Extract AI-ready connectivity from the .epro2 project. If a data sheet is also provided, infer the chip configuration pin group by pin group. In each reply, focus on exactly one small group, self-check the judgment before answering, show pin mapping evidence, project evidence, data sheet evidence, functional/electrical effect, inferred result, and questionable points only when present. Treat parser pins such as U1.1 as project pad/physical package pin identifiers, not schematic-symbol order; map them to the exact data-sheet package pinout before assigning functions. Do not stop at connectivity; when a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when possible. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before continuing.
 ```
 
 If the agent supports implicit skills, providing an EasyEDA Pro `.epro2` project should be enough to trigger this skill. A PDF data sheet is optional for connectivity extraction and required for data-sheet-based chip configuration judgment.

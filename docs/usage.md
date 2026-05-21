@@ -48,7 +48,7 @@ The parser output starts with machine-readable identity fields:
   "schema": "chip-netlist-ai-json-v1",
   "generated_by": {
     "tool": "chip-netlist",
-    "version": "0.1.12"
+    "version": "0.1.13"
   }
 }
 ```
@@ -99,7 +99,7 @@ Use $chip-netlist to analyze:
 Data sheet: /path/to/chip.pdf
 Project: /path/to/board.epro2
 
-Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one small functional pin group at a time. In each reply, focus on exactly one current group, self-check your judgment before answering, show .epro2 project evidence, data sheet evidence, the functional/electrical effect of the connection, inferred result, and questionable points only when present. When a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when the data sheet provides enough information. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before moving to the next group.
+Start by parsing the .epro2 project into AI-ready JSON. Then identify the target chip from the data sheet and infer the configuration one small functional pin group at a time. Before assigning any pin function, map parser pins such as U1.1 to the exact physical package pinout and data-sheet function; do not treat parser pin numbers as schematic-symbol order. In each reply, focus on exactly one current group, self-check your judgment before answering, show pin mapping evidence, .epro2 project evidence, data sheet evidence, the functional/electrical effect of the connection, inferred result, and questionable points only when present. When a resistor, capacitor, divider, shunt, strap, or pullup/pulldown sets a parameter, calculate the resulting current, voltage threshold, timing, frequency, logic state, or mode when the data sheet provides enough information. When naming MOSFET or other peer-component pin functions, deduce them from controlling-IC data-sheet pin functions plus parser net evidence; do not assume pin functions from package numbering habits. Wait for my Y/N confirmation before moving to the next group.
 ```
 
 ## Expected Workflow
@@ -112,13 +112,14 @@ Start by parsing the .epro2 project into AI-ready JSON. Then identify the target
 6. If a PDF is provided, read only the relevant pin table, configuration table, formulas, limits, and typical circuits.
 7. If no PDF is provided, use `datasheet_lookup.targets` in the context packet to search for data sheets online.
 8. Store verified source URLs in `datasheet_sources.json` and extracted facts in `datasheet_facts/`.
-9. Pick exactly one smallest useful functional pin group for the current reply, such as one supply path, one sense pair, one threshold divider, one timer pin, one gate-drive path, or one strap/config table.
-10. Infer the configured function or parameter. Do not stop at connectivity; explain what the connection makes the circuit do.
-11. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
-12. When naming peer component pin functions, deduce those functions from the controlling IC data sheet plus parser net evidence. Do not assume MOSFET source/drain/gate or connector/module pin roles from numbering conventions alone.
-13. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
-14. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
-15. Tell the user that the current group/part has been completely analyzed, then ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
+9. Build a parser-pin to data-sheet-function mapping table from the exact package pinout before assigning functions. Treat `Ref.N` as a project pad/physical package pin identifier, not schematic-symbol order.
+10. Pick exactly one smallest useful functional pin group for the current reply, such as one supply path, one sense pair, one threshold divider, one timer pin, one gate-drive path, or one strap/config table.
+11. Infer the configured function or parameter. Do not stop at connectivity; explain what the connection makes the circuit do.
+12. When a value-setting resistor, capacitor, divider, shunt, strap, or pullup/pulldown is present, calculate the resulting current limit, threshold, timing, switching frequency, logic state, or mode if the data sheet gives enough information.
+13. When naming peer component pin functions, deduce those functions from the controlling IC data sheet plus parser net evidence. Do not assume MOSFET source/drain/gate or connector/module pin roles from numbering conventions alone.
+14. Self-check that the judgment is limited to this one group, includes the functional/electrical effect, and is directly supported by project evidence plus data sheet/source evidence.
+15. Update `analysis_state.json` and append confirmed findings to `analysis_report.md` after user confirmation.
+16. Tell the user that the current group/part has been completely analyzed, then ask the user to confirm with `Y/N` and stop. Move to the next group only after confirmation.
 
 ## Parser Usage
 
@@ -204,6 +205,16 @@ When the user asks to analyze a circuit section and no data sheet is supplied, t
 
 Do not load a large batch of unrelated PDFs. Load or search only the data sheets needed for the current context packet.
 
+## Pin Numbering Convention
+
+Parser pins such as `U1.1` come from `.epro2` `PAD_NET` project pad identifiers. They must be treated as physical package pins or footprint pads, not schematic-symbol logical order. Before any functional conclusion, map parser pins to the exact data-sheet package pinout:
+
+- build `Parser Pin -> Physical Package Pin/Pad -> Data-sheet Function -> Net/Connection Status`,
+- use the package-specific pinout, not a generic family table or a symbol drawing,
+- if the data sheet says `Pin 38 = CELLS0`, only `U1.38` can prove the CELLS0 connection,
+- if the expected physical pin is absent, no-net, or `connected: false`, report it as not observed/floating unless raw project records prove otherwise,
+- do not infer a missing pin's connection from neighboring pins, same-function names, or schematic symbol order.
+
 If PDF text extraction is needed, use `pdftotext -layout` when available and search the text for exact part numbers, pin names, formulas, and threshold terms. If the PDF is scanned or extraction is incomplete, ask the user for OCR, screenshots, or manual confirmation. Do not fall back to generic package pin assumptions.
 
 ## Component Pin Function Deduction
@@ -222,6 +233,7 @@ For example, if a hot-swap controller data sheet says `OUT` connects to the MOSF
 Each analysis group should include:
 
 - one explicit current focus group,
+- pin mapping evidence for the current group, and a full mapping before the first functional conclusion when pin numbering could be ambiguous,
 - `.epro2 project evidence`,
 - `data sheet evidence` when a PDF was provided or found online,
 - `functional/electrical effect`, including formulas and numeric results when possible,
