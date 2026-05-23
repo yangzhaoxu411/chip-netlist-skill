@@ -1,0 +1,121 @@
+{
+  "schema": "chip-netlist-ai-json-v1",
+  "generated_by": {
+    "tool": "chip-netlist",
+    "version": "0.1.0",
+    "parser": "scripts/parse_project.py"
+  },
+  "source": "tests/fixtures/sample_netlist.json",
+  "source_type": "json",
+  "project": {
+    "title": "Sample Test Project",
+    "editor_version": "2.2.31.4",
+    "epru_file": "test.epru"
+  },
+  "record_count": 5,
+  "component_count": 2,
+  "net_count": 2,
+  "components": {
+    "R1": {
+      "designator": "R1",
+      "canonical_name": "10K",
+      "value": "10K",
+      "name": "RES",
+      "footprint_id": "RESO402_X_2",
+      "manufacturer_part": "RC0402FR-0710KL",
+      "pin_count_hint": 2,
+      "source_component_ids": ["comp_001"],
+      "source_part_ids": ["part_r1"],
+      "source_unique_ids": ["uid_r1"]
+    },
+    "U1": {
+      "designator": "U1",
+      "canonical_name": "STM32F103C8T6",
+      "manufacturer_part": "STM32F103C8T6",
+      "manufacturer": "STMicroelectronics",
+      "footprint_id": "LQFP-48",
+      "pin_count_hint": 48,
+      "source_component_ids": ["comp_002"],
+      "source_part_ids": ["part_u1"],
+      "source_unique_ids": ["uid_u1"]
+    }
+  },
+  "nets": [
+    {
+      "net": "VCC_3V3",
+      "connections": ["R1.1", "U1.24", "U1.36"]
+    },
+    {
+      "net": "GND",
+      "connections": ["R1.2", "U1.23", "U1.8"]
+    }
+  ],
+  "pins": {
+    "R1.1": [
+      {
+        "net": "VCC_3V3",
+        "pin_id": "pin_r1_1",
+        "peers": ["U1.24", "U1.36"]
+      }
+    ],
+    "R1.2": [
+      {
+        "net": "GND",
+        "pin_id": "pin_r1_2",
+        "peers": ["U1.23", "U1.8"]
+      }
+    ],
+    "U1.8": [
+      {
+        "net": "GND",
+        "pin_id": "pin_u1_8",
+        "peers": ["R1.2", "U1.23"]
+      }
+    ],
+    "U1.23": [
+      {
+        "net": "GND",
+        "pin_id": "pin_u1_23",
+        "peers": ["R1.2", "U1.8"]
+      }
+    ],
+    "U1.24": [
+      {
+        "net": "VCC_3V3",
+        "pin_id": "pin_u1_24",
+        "peers": ["R1.1", "U1.36"]
+      }
+    ],
+    "U1.36": [
+      {
+        "net": "VCC_3V3",
+        "pin_id": "pin_u1_36",
+        "peers": ["R1.1", "U1.24"]
+      }
+    ]
+  },
+  "warnings": {
+    "no_net_pins": ["U1.1", "U1.2"],
+    "single_point_nets": [],
+    "low_connection_nets": [],
+    "components_without_canonical_name": []
+  },
+  "datasheet_lookup": {
+    "purpose": "When the user asks to analyze part of a circuit, use these candidates plus the selected refs/nets to search for data sheets.",
+    "source_priority": [],
+    "search_rules": [],
+    "candidates": [
+      {
+        "ref": "U1",
+        "priority": "high",
+        "reason": "integrated circuit or module",
+        "canonical_name": "STM32F103C8T6",
+        "manufacturer": "STMicroelectronics",
+        "manufacturer_part": "STM32F103C8T6",
+        "supplier_part": null,
+        "datasheet": null,
+        "query_terms": ["STM32F103C8T6 datasheet"]
+      }
+    ]
+  }
+}

@@ -1,70 +1,20 @@
-# Install for Claude Code
+# Claude Code Install
 
-Claude Code supports skills as folders under `~/.claude/skills/<skill-name>/SKILL.md`.
-
-## One-Line Install
-
-These commands install from `yangzhaoxu411/chip-netlist-skill`.
-
-Windows PowerShell:
+Install the skill for Claude Code:
 
 ```powershell
-$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.ps1 | iex
+$env:TARGET="claude"; irm https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/main/install.ps1 | iex
 ```
 
-macOS / Linux / Git Bash:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/v0.1.14/install.sh | bash -s -- --target claude
-```
-
-## Update to Latest
-
-Windows PowerShell:
+Verify:
 
 ```powershell
-$env:TARGET="claude"; $tag=(irm https://api.github.com/repos/yangzhaoxu411/chip-netlist-skill/releases/latest).tag_name; irm "https://raw.githubusercontent.com/yangzhaoxu411/chip-netlist-skill/$tag/install.ps1" | iex
+python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\run_pipeline.py" --help
+python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\strict_claims.py" --help
 ```
 
-View the installed version:
-
-Windows:
+Use:
 
 ```powershell
-python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\parse_tel_netlist.py" --version
+python "$env:USERPROFILE\.claude\skills\chip-netlist\scripts\run_pipeline.py" "C:\path\to\board.epro2" --workdir .chip-netlist
 ```
-
-macOS / Linux:
-
-```bash
-python ~/.claude/skills/chip-netlist/scripts/parse_tel_netlist.py --version
-```
-
-## Manual Install
-
-Windows:
-
-```powershell
-git clone https://github.com/yangzhaoxu411/chip-netlist-skill.git
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills" | Out-Null
-Copy-Item -Recurse -Force .\chip-netlist-skill\chip-netlist "$env:USERPROFILE\.claude\skills\chip-netlist"
-```
-
-macOS / Linux:
-
-```bash
-git clone https://github.com/yangzhaoxu411/chip-netlist-skill.git
-mkdir -p ~/.claude/skills
-rm -rf ~/.claude/skills/chip-netlist
-cp -R chip-netlist-skill/chip-netlist ~/.claude/skills/chip-netlist
-```
-
-Restart Claude Code after installation.
-
-## Usage
-
-```text
-Use $chip-netlist to analyze this .epro2 project and optional chip PDF data sheet. Infer the configuration one small functional pin group at a time. In each reply, focus on exactly one current group, explain what the connection makes the circuit do, calculate the resulting parameter when possible, and deduce MOSFET or peer-component pin functions from controlling-IC data-sheet pins plus parser net evidence instead of pin-number habits. Self-check your judgment before answering, then wait for my Y/N confirmation before moving to the next group.
-```
-
-
