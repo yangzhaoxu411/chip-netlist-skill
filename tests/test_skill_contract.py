@@ -31,6 +31,14 @@ def test_skill_requires_claim_validation_before_presenting_chip_conclusions() ->
     assert "Do not present rejected claims" in text
 
 
+def test_skill_requires_read_integrity_gate_before_chip_conclusions() -> None:
+    text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "read_integrity.json" in text
+    assert "integrity_audit.json" in text
+    assert "read_integrity_failed" in text
+    assert "Do not analyze from corrupted or partial reads" in text
+
+
 def test_agents_openai_yaml_uses_policy_shape() -> None:
     data = yaml.safe_load((SKILL_DIR / "agents" / "openai.yaml").read_text(encoding="utf-8"))
     assert data["interface"]["display_name"] == "Chip Netlist Strict Review"

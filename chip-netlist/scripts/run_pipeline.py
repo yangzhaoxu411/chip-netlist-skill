@@ -65,6 +65,92 @@ def require_success(result: subprocess.CompletedProcess[str], label: str) -> Non
     raise RuntimeError(f"{label} failed with exit code {result.returncode}: {detail}")
 
 
+def _audit_check(name: str, passed: bool, detail: str = "") -> dict[str, Any]:
+    return {
+        "name": name,
+        "required": True,
+        "status": "passed" if passed else "failed",
+        "detail": detail,
+    }
+
+
+def build_artifact_integrity_audit(
+    chip_netlist: dict[str, Any],
+    component_index: dict[str, Any],
+) -> dict[str, Any]:
+    """Cross-check generated workbench artifacts before analysis continues."""
+    components = chip_netlist.get("components") if isinstance(chip_netlist.get("components"), dict) else {}
+    nets = chip_netlist.get("nets") if isinstance(chip_netlist.get("nets"), list) else []
+    pins = chip_netlist.get("pins") if isinstance(chip_netlist.get("pins"), dict) else {}
+    indexed_components = (
+        component_index.get("components") if isinstance(component_index.get("components"), dict) else {}
+    )
+
+    component_count = chip_netlist.get("component_count")
+    net_count = chip_netlist.get("net_count")
+    index_count = component_index.get("component_count")
+    read_integrity_status = chip_netlist.get("read_integrity", {}).get("status")
+    component_refs = set(components)
+    index_refs = set(indexed_components)
+
+    checks = [
+        _audit_check(
+            "chip_netlist_schema_valid",
+            chip_netlist.get("schema") == "chip-netlist-ai-json-v1",
+            str(chip_netlist.get("schema")),
+        ),
+        _audit_check(
+            "component_index_schema_valid",
+            component_index.get("schema") == "chip-netlist-component-index-v1",
+            str(component_index.get("schema")),
+        ),
+        _audit_check(
+            "read_integrity_status_passed",
+            read_integrity_status == "passed",
+            str(read_integrity_status),
+        ),
+        _audit_check(
+            "component_count_matches_components",
+            component_count == len(components),
+            f"declared={component_count}, actual={len(components)}",
+        ),
+        _audit_check(
+            "net_count_matches_nets",
+            net_count == len(nets),
+            f"declared={net_count}, actual={len(nets)}",
+        ),
+        _audit_check("pins_present", len(pins) > 0, f"{len(pins)} connected pins"),
+        _audit_check(
+            "component_index_count_matches_chip_netlist",
+            index_count == len(components),
+            f"index_declared={index_count}, chip_components={len(components)}",
+        ),
+        _audit_check(
+            "component_index_refs_match_chip_netlist",
+            index_refs == component_refs,
+            f"missing={sorted(component_refs - index_refs)}, extra={sorted(index_refs - component_refs)}",
+        ),
+    ]
+    failed_required_checks = [
+        check["name"]
+        for check in checks
+        if check["required"] and check["status"] != "passed"
+    ]
+    return {
+        "schema": "chip-netlist-integrity-audit-v1",
+        "status": "failed" if failed_required_checks else "passed",
+        "policy": "If status is failed, stop and report read_integrity_failed instead of analyzing.",
+        "failed_required_checks": failed_required_checks,
+        "checks": checks,
+        "metrics": {
+            "component_count": len(components),
+            "net_count": len(nets),
+            "pin_count": len(pins),
+            "component_index_count": len(indexed_components),
+        },
+    }
+
+
 def convert_datasheets(workdir: Path) -> list[dict[str, str]]:
     """Convert downloaded PDF datasheets to text when pdftotext is available."""
     datasheets_dir = workdir / "datasheets"
@@ -167,6 +253,8 @@ def build_analysis_stub(
         "requires_user_requested_deep_review": True,
         "inputs": {
             "chip_netlist": str(workdir / "chip_netlist.json"),
+            "read_integrity": str(workdir / "read_integrity.json"),
+            "integrity_audit": str(workdir / "integrity_audit.json"),
             "component_index": str(workdir / "component_index.json"),
             "enriched": str(workdir / "enriched.json"),
             "findings": str(findings_path),
@@ -207,6 +295,8 @@ def run_pipeline(
     workdir.mkdir(parents=True, exist_ok=True)
     paths = {
         "chip_netlist": workdir / "chip_netlist.json",
+        "read_integrity": workdir / "read_integrity.json",
+        "integrity_audit": workdir / "integrity_audit.json",
         "component_index": workdir / "component_index.json",
         "findings": workdir / "findings.json",
         "limitations": workdir / "limitations.json",
@@ -222,6 +312,14 @@ def run_pipeline(
         cwd=project_root,
     )
     require_success(result, "parse_project")
+
+    chip_netlist = load_json_file(paths["chip_netlist"])
+    component_index = load_json_file(paths["component_index"])
+    integrity_audit = build_artifact_integrity_audit(chip_netlist, component_index)
+    write_json_file(paths["integrity_audit"], integrity_audit)
+    if integrity_audit.get("status") != "passed":
+        failed = ", ".join(integrity_audit.get("failed_required_checks", [])) or "unknown"
+        raise RuntimeError(f"read_integrity_failed: {failed}")
 
     result = run_step(
         [
@@ -309,6 +407,8 @@ def run_pipeline(
         "project_file": str(project_file),
         "workdir": str(workdir),
         "paths": {key: str(value) for key, value in paths.items()},
+        "read_integrity_status": chip_netlist.get("read_integrity", {}).get("status"),
+        "integrity_audit_status": integrity_audit.get("status"),
         "datasheet_conversions": conversions,
         "fact_extractions": fact_extractions,
     }

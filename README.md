@@ -7,7 +7,8 @@ This version runs in **Strict Accuracy Mode**: chip-level conclusions must be su
 ## What It Does
 
 - Parses EasyEDA Pro projects into AI-readable component, pin, and net evidence.
-- Builds a persistent `.chip-netlist` workbench with `chip_netlist.json`, `component_index.json`, context packets, downloaded data sheets, extracted facts, findings, reports, and limitations.
+- Builds a persistent `.chip-netlist` workbench with `chip_netlist.json`, `read_integrity.json`, `integrity_audit.json`, `component_index.json`, context packets, downloaded data sheets, extracted facts, findings, reports, and limitations.
+- Fails closed when project reads are empty, corrupt, partial, or internally inconsistent.
 - Downloads and extracts data-sheet facts for active or high-priority parts where possible.
 - Runs deterministic schematic checks and datasheet-backed checks.
 - Requires LLM-written claims to be validated before they are treated as accepted chip conclusions.
@@ -72,6 +73,8 @@ python "<skill-dir>/scripts/run_pipeline.py" "<project.epro2>" --workdir .chip-n
 ```
 
 The generated `report.md` is triage. Data-sheet-backed chip claims should be placed in a claims JSON file and validated:
+
+Before using any schematic result, check `.chip-netlist/read_integrity.json` and `.chip-netlist/integrity_audit.json`. Both must have `status: passed`; otherwise stop and report `read_integrity_failed`.
 
 ```bash
 python "<skill-dir>/scripts/strict_claims.py" --workdir .chip-netlist --claims claims.json --output .chip-netlist/verified_claims.json

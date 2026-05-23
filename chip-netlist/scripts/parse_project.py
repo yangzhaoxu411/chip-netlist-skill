@@ -8,6 +8,7 @@ import json
 import re
 import sys
 import zipfile
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,153 @@ def read_project(path: Path) -> tuple[dict[str, Any], str, str]:
         return _read_epro(path)
     else:
         raise ValueError(f"Only .epro2 and .epro files are supported: {path}")
+
+
+def _integrity_check(name: str, passed: bool, *, required: bool = True, detail: str = "") -> dict[str, Any]:
+    return {
+        "name": name,
+        "required": required,
+        "status": "passed" if passed else "failed",
+        "detail": detail,
+    }
+
+
+def inspect_project_container(path: Path) -> dict[str, Any]:
+    """Collect container-level read facts without trusting parsed schematic data."""
+    suffix = path.suffix.lower()
+    info: dict[str, Any] = {
+        "path": str(path),
+        "suffix": suffix,
+        "exists": path.exists(),
+        "file_size_bytes": path.stat().st_size if path.exists() else 0,
+        "container_type": "zip" if suffix == ".epro2" else "text" if suffix == ".epro" else "unsupported",
+        "zip_entry_count": None,
+        "epru_files": [],
+        "project2_json_present": False,
+        "zip_crc_bad_member": None,
+        "container_error": None,
+    }
+
+    if suffix != ".epro2" or not path.exists():
+        return info
+
+    try:
+        with zipfile.ZipFile(path) as project:
+            names = project.namelist()
+            info["zip_entry_count"] = len(names)
+            info["epru_files"] = [name for name in names if name.lower().endswith(".epru")]
+            info["project2_json_present"] = "project2.json" in names
+            info["zip_crc_bad_member"] = project.testzip()
+    except Exception as exc:  # pragma: no cover - read_project normally reports this first
+        info["container_error"] = f"{type(exc).__name__}: {exc}"
+    return info
+
+
+def build_read_integrity_report(
+    *,
+    path: Path,
+    epru_name: str,
+    epru_text: str,
+    records: list[tuple[dict[str, Any], dict[str, Any]]],
+    components: dict[str, dict[str, Any]],
+    nets: dict[str, list[str]],
+    pin_map: dict[str, list[dict[str, Any]]],
+    no_net_pins: list[str],
+) -> dict[str, Any]:
+    """Build a hard gate that detects corrupt, empty, or partial project reads."""
+    container = inspect_project_container(path)
+    record_type_counts = Counter(str(meta.get("type") or "") for meta, _ in records)
+    schematic_doc_count = sum(
+        1
+        for meta, data in records
+        if meta.get("type") == "DOCHEAD" and str(data.get("docType") or "").upper() == "SCHEMATIC"
+    )
+    connected_pin_count = len(pin_map)
+    net_connection_count = sum(len(connections) for connections in nets.values())
+    replacement_character_count = epru_text.count("\ufffd")
+
+    checks = [
+        _integrity_check("source_file_exists", container["exists"], detail=str(path)),
+        _integrity_check(
+            "source_file_nonempty",
+            int(container["file_size_bytes"] or 0) > 0,
+            detail=f"{container['file_size_bytes']} bytes",
+        ),
+        _integrity_check(
+            "supported_extension",
+            path.suffix.lower() in {".epro2", ".epro"},
+            detail=path.suffix.lower(),
+        ),
+        _integrity_check("project_text_nonempty", bool(epru_text.strip()), detail=epru_name),
+        _integrity_check("records_found", len(records) > 0, detail=f"{len(records)} parsed records"),
+        _integrity_check(
+            "schematic_components_found",
+            len(components) > 0,
+            detail=f"{len(components)} components",
+        ),
+        _integrity_check("schematic_nets_found", len(nets) > 0, detail=f"{len(nets)} nets"),
+        _integrity_check(
+            "pin_connections_found",
+            connected_pin_count > 0 and net_connection_count > 0,
+            detail=f"{connected_pin_count} pins, {net_connection_count} net connections",
+        ),
+        _integrity_check(
+            "replacement_character_check",
+            replacement_character_count == 0,
+            required=False,
+            detail=f"{replacement_character_count} Unicode replacement characters in project text",
+        ),
+    ]
+
+    if path.suffix.lower() == ".epro2":
+        checks.extend([
+            _integrity_check(
+                "zip_container_readable",
+                not container.get("container_error"),
+                detail=str(container.get("container_error") or "readable"),
+            ),
+            _integrity_check(
+                "epru_document_found",
+                bool(container.get("epru_files")),
+                detail=", ".join(container.get("epru_files") or []),
+            ),
+            _integrity_check(
+                "zip_crc_check",
+                container.get("zip_crc_bad_member") is None,
+                detail=str(container.get("zip_crc_bad_member") or "all entries passed"),
+            ),
+        ])
+
+    failed_required_checks = [
+        check["name"]
+        for check in checks
+        if check["required"] and check["status"] != "passed"
+    ]
+    warning_checks = [
+        check["name"]
+        for check in checks
+        if not check["required"] and check["status"] != "passed"
+    ]
+
+    return {
+        "schema": "chip-netlist-read-integrity-v1",
+        "status": "failed" if failed_required_checks else "passed",
+        "policy": "If status is failed, stop and report read_integrity_failed instead of analyzing.",
+        "failed_required_checks": failed_required_checks,
+        "warning_checks": warning_checks,
+        "checks": checks,
+        "container": container,
+        "metrics": {
+            "record_count": len(records),
+            "record_type_counts": dict(sorted(record_type_counts.items())),
+            "schematic_doc_count": schematic_doc_count,
+            "component_count": len(components),
+            "net_count": len(nets),
+            "connected_pin_count": connected_pin_count,
+            "net_connection_count": net_connection_count,
+            "no_net_pin_count": len(no_net_pins),
+        },
+    }
 
 
 def parse_record_stream(text: str) -> list[tuple[dict[str, Any], dict[str, Any]]]:
@@ -651,14 +799,17 @@ def write_workbench(
 
     paths: dict[str, str] = {}
     netlist_path = workbench_dir / "chip_netlist.json"
+    read_integrity_path = workbench_dir / "read_integrity.json"
     component_index_path = workbench_dir / "component_index.json"
     datasheet_sources_path = workbench_dir / "datasheet_sources.json"
     state_path = workbench_dir / "analysis_state.json"
     report_path = workbench_dir / "analysis_report.md"
 
     write_json(netlist_path, result)
+    write_json(read_integrity_path, result.get("read_integrity", {}))
     write_json(component_index_path, build_component_index(result))
     paths["chip_netlist"] = str(netlist_path)
+    paths["read_integrity"] = str(read_integrity_path)
     paths["component_index"] = str(component_index_path)
 
     datasheet_sources = {
@@ -696,6 +847,7 @@ def write_workbench(
         "",
         f"- Source: `{result.get('source')}`",
         f"- Generated by: `{result.get('generated_by', {}).get('tool')}` `{result.get('generated_by', {}).get('version')}`",
+        f"- Read integrity: `{result.get('read_integrity', {}).get('status', 'unknown')}`",
         "",
         "Append confirmed pin-group analysis here after each Y/N checkpoint.",
         "",
@@ -800,6 +952,16 @@ def analyze(path: Path, ref: str | None = None) -> dict[str, Any]:
     library_attrs_by_device = collect_library_attrs(records)
     components, component_id_to_ref = collect_components(records, attrs_by_parent, library_attrs_by_device)
     nets, pin_map, observed_pins_by_ref, no_net_pins = collect_pad_nets(records, component_id_to_ref)
+    read_integrity = build_read_integrity_report(
+        path=path,
+        epru_name=epru_name,
+        epru_text=epru_text,
+        records=records,
+        components=components,
+        nets=nets,
+        pin_map=pin_map,
+        no_net_pins=no_net_pins,
+    )
 
     source_type = path.suffix.lower().lstrip(".")
 
@@ -814,6 +976,7 @@ def analyze(path: Path, ref: str | None = None) -> dict[str, Any]:
             "recognition": "If this JSON is uploaded later, treat it as chip-netlist generated project evidence.",
             "circuit_selection": "When the user names a ref, net, rail, connector, or functional area, collect matching components, their connected nets, and one-hop peer pins before analysis.",
             "datasheet_policy": "When no user-provided data sheet exists, search the web for data sheets for relevant active or critical components before judging circuit correctness.",
+            "read_integrity_policy": "If read_integrity.status is not passed, do not make chip-level conclusions.",
         },
         "source": str(path),
         "source_type": source_type,
@@ -825,6 +988,7 @@ def analyze(path: Path, ref: str | None = None) -> dict[str, Any]:
         "record_count": len(records),
         "component_count": len(components),
         "net_count": len(nets),
+        "read_integrity": read_integrity,
         "components": {ref_name: components[ref_name] for ref_name in sorted(components, key=natural_ref_key)},
         "nets": [
             {"net": net, "connections": nets[net]}
@@ -886,9 +1050,15 @@ def main(argv: list[str]) -> int:
         print(f"Error parsing project: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
 
-    # Warn if netlist is empty
-    if result.get("component_count", 0) == 0:
-        print("Warning: No components found in the project. The file may be empty or corrupted.", file=sys.stderr)
+    # Fail closed if the parser produced incomplete project evidence.
+    read_integrity = result.get("read_integrity", {})
+    if read_integrity.get("status") != "passed":
+        if args.workdir:
+            args.workdir.mkdir(parents=True, exist_ok=True)
+            write_json(args.workdir / "read_integrity.json", read_integrity)
+        failed = ", ".join(read_integrity.get("failed_required_checks", [])) or "unknown"
+        print(f"Error: read_integrity_failed: {failed}", file=sys.stderr)
+        return 1
 
     context_packet = None
     if args.context:

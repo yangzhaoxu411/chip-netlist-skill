@@ -15,6 +15,8 @@ The workbench contains:
 ```text
 .chip-netlist/
 |-- chip_netlist.json
+|-- read_integrity.json
+|-- integrity_audit.json
 |-- component_index.json
 |-- enriched.json
 |-- evidence_ledger.json
@@ -29,6 +31,8 @@ The workbench contains:
 ```
 
 `report.md` is triage. Chip-level conclusions are only final when they appear in `verified_claims.json` with `strict_status: accepted`.
+
+`read_integrity.json` and `integrity_audit.json` are hard gates. If either has `status: failed` or is missing, stop and report `read_integrity_failed`; do not analyze from corrupted or partial reads.
 
 ## Focused Context
 

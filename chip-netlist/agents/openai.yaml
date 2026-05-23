@@ -1,6 +1,6 @@
 interface:
   display_name: "Chip Netlist Strict Review"
   short_description: "Strict datasheet-backed EasyEDA Pro netlist and schematic review"
-  default_prompt: "Use $chip-netlist to run a Strict Accuracy Mode EasyEDA Pro netlist review. Only present chip conclusions that pass strict_claims.py with project and datasheet evidence."
+  default_prompt: "Use $chip-netlist to run a Strict Accuracy Mode EasyEDA Pro netlist review. Check read_integrity.json and integrity_audit.json first. Only present chip conclusions that pass strict_claims.py with project and datasheet evidence."
 policy:
   allow_implicit_invocation: true

@@ -11,12 +11,15 @@ Data must come from chip datasheets and parsed project evidence. Do not invent p
 
 For any chip, transistor, diode, fuse, inductor, connector, or protection-device conclusion:
 
-1. Cite project evidence from `.chip-netlist/chip_netlist.json` or a focused context packet.
-2. Cite datasheet evidence from `.chip-netlist/datasheet_facts/` or extracted datasheet text.
-3. Validate the conclusion with `strict_claims.py`.
-4. Present only accepted claims from `.chip-netlist/verified_claims.json`.
+1. Confirm `.chip-netlist/read_integrity.json` and `.chip-netlist/integrity_audit.json` both have `status: passed`.
+2. Cite project evidence from `.chip-netlist/chip_netlist.json` or a focused context packet.
+3. Cite datasheet evidence from `.chip-netlist/datasheet_facts/` or extracted datasheet text.
+4. Validate the conclusion with `strict_claims.py`.
+5. Present only accepted claims from `.chip-netlist/verified_claims.json`.
 
 If datasheet evidence is absent, the answer is `unknown`. Do not fill the gap with engineering memory or "common practice".
+
+Do not analyze from corrupted or partial reads. If either integrity file is missing or failed, stop and report `read_integrity_failed` with the failed checks.
 
 ## Default Command
 
@@ -31,6 +34,8 @@ The pipeline creates:
 ```text
 .chip-netlist/
   chip_netlist.json
+  read_integrity.json
+  integrity_audit.json
   component_index.json
   enriched.json
   evidence_ledger.json
@@ -50,18 +55,31 @@ The pipeline creates:
 The default pipeline:
 
 1. Parses the project into component, pin, and net evidence.
-2. Runs basic deterministic schematic rules.
-3. Downloads datasheets for active and high-priority components.
-4. Converts datasheet PDFs to text when `pdftotext` is available.
-5. Extracts datasheet facts: pin tables, formulas, ratings, recommended conditions.
-6. Builds `enriched.json`.
-7. Runs datasheet-backed deterministic rules.
-8. Builds `evidence_ledger.json`.
-9. Writes an empty `claims_draft.json`.
-10. Validates the empty draft into `verified_claims.json`.
-11. Generates `report.md` and `limitations.json`.
+2. Writes `read_integrity.json` and fails closed if records, components, nets, or pin connections are missing.
+3. Cross-checks generated `chip_netlist.json` against `component_index.json` in `integrity_audit.json`.
+4. Runs basic deterministic schematic rules.
+5. Downloads datasheets for active and high-priority components.
+6. Converts datasheet PDFs to text when `pdftotext` is available.
+7. Extracts datasheet facts: pin tables, formulas, ratings, recommended conditions.
+8. Builds `enriched.json`.
+9. Runs datasheet-backed deterministic rules.
+10. Builds `evidence_ledger.json`.
+11. Writes an empty `claims_draft.json`.
+12. Validates the empty draft into `verified_claims.json`.
+13. Generates `report.md` and `limitations.json`.
 
 The empty draft is intentional: no LLM conclusion is trusted until it is written as a claim and validated.
+
+## Read Integrity Gate
+
+Before reading any schematic conclusion, open:
+
+- `.chip-netlist/read_integrity.json`
+- `.chip-netlist/integrity_audit.json`
+
+Both must say `status: passed`. Check the metrics: `record_count`, `component_count`, `net_count`, `connected_pin_count`, and matching component-index counts. If either file is absent, unreadable, or failed, do not continue to rule findings, datasheets, or claims. Report `read_integrity_failed` and list `failed_required_checks`.
+
+Never infer around missing project evidence. A partial netlist is not weak evidence; it is no evidence.
 
 ## Evidence Ledger
 
@@ -114,10 +132,11 @@ Do not present rejected claims. If `verified_claims.json` marks a claim as `reje
 For a general chip netlist:
 
 1. Run the default command.
-2. Summarize `.chip-netlist/report.md`.
-3. Summarize `.chip-netlist/limitations.json`.
-4. Say that chip-level conclusions remain `unknown` unless accepted in `.chip-netlist/verified_claims.json`.
-5. Ask which component or net should be analyzed with strict claims.
+2. Read `.chip-netlist/read_integrity.json` and `.chip-netlist/integrity_audit.json`; if either failed, stop with `read_integrity_failed`.
+3. Summarize `.chip-netlist/report.md`.
+4. Summarize `.chip-netlist/limitations.json`.
+5. Say that chip-level conclusions remain `unknown` unless accepted in `.chip-netlist/verified_claims.json`.
+6. Ask which component or net should be analyzed with strict claims.
 
 Do not add unvalidated chip conclusions during the general review.
 
@@ -126,18 +145,19 @@ Do not add unvalidated chip conclusions during the general review.
 When the user requests a specific component or net:
 
 1. Ensure the default pipeline has run.
-2. Build a focused context packet:
+2. Re-check `.chip-netlist/read_integrity.json` and `.chip-netlist/integrity_audit.json`.
+3. Build a focused context packet:
 
 ```bash
 python "<skill-dir>/scripts/parse_project.py" "<project.epro2>" --context "<ref-or-net>" --workdir .chip-netlist
 ```
 
-3. Read the context packet under `.chip-netlist/context_packets/`.
-4. Read the component entry in `.chip-netlist/evidence_ledger.json`.
-5. Read the matching file in `.chip-netlist/datasheet_facts/`.
-6. Draft claims using the claim schema.
-7. Run `strict_claims.py`.
-8. Present only accepted claims.
+4. Read the context packet under `.chip-netlist/context_packets/`.
+5. Read the component entry in `.chip-netlist/evidence_ledger.json`.
+6. Read the matching file in `.chip-netlist/datasheet_facts/`.
+7. Draft claims using the claim schema.
+8. Run `strict_claims.py`.
+9. Present only accepted claims.
 
 ## Claim Types Requiring Datasheet Evidence
 
